@@ -1,0 +1,39 @@
+	Test Info
+
+HX controller check:
+1) Cluster services check: It will check cluster state(online or offline), health-state(healthy or unhealthy) and the services(Springpath File System, SCVM Client, System Management Service, Cluster IP Monitor) are running or not.
+2) Enospc State check: It will check Enospc State is clear or not.
+3) ZooKeeper check: It will check mode is follower or leader or standalone.
+4) Exhibitor check: It will check exhibitor service is running or not.
+5) HDD health check: It will check number of claimed, blacklisted and ignored disks.
+6) DNS check: It will check the DNS IP is reachable or not.
+7) vCenter reachability check: It will ping to vCenter IP address and check it is reachable or not.
+8) Timestamp check: It will check timestamp of all cluster nodes are same or not.
+9) NTP sync check: It will check all cluster NTP IP address is same or not and it will ping to that IP and confirm reachable or not. Also check NTP deamon service is running or not.
+10) Cluster Upgrade check: It will check the cluster upgrade status.
+11) Extra pnodes check: It will check the number pnodes and the number cluster of cluster nodes are same or not.
+12) Disk usage(/var/stv) check: It will check the disk usage(<=80%).
+13) Out of memory check: It will check the out of memory error in the kern.log file.
+14) Check memory: It will display memory usage info.
+15) Check CPU: It will display the CPU usage info.
+16) Check cluster usage: It will check failure tolerance of node, HDD, SSD.
+17) Check cache vNodes: It will check cashe is spread across all controllers.
+18) Check package & versions: It will display the list of packages and its versions.
+19) Supported vSphere versions: It will display the supported vSphere versions.
+
+Network check:
+1) HX User Account check: It will check hx user account is created or not.
+2) vMotion Enabled check: It will check vMotion is enabled or not in the ESX server.
+3) Check for CSCvj71618: It will check the int value(100) of  TeamPolicyUpDelay.
+4) Check ping to vmk0, eth0, eth1: It will check the below ping response:
+   a) vmk0 ping to each ESXi vmk0
+   b) vmk1 ping to each ESXi vmk1
+   c) vmk0 ping to each SCVM eth0
+   d) vmk1 ping to each SCVM eth1
+5) No extra controller vm folders: It will check any extra folder exists in the vm folders.
+   Bug: CSCvh99309
+   TZ: https://techzone.cisco.com/t5/HyperFlex/How-to-fix-stCtlVM-s-duplicate-folder/ta-p/1174364/message-revision/1174364:1
+6) ESX version check: It will display the vSphere version of the ESX server.
+7) ESX vib list check: It will display the vib list(Springpath).
+8) ESX services check: It will display the status of the services such as ntpd, hostd, vpxa, stHypervisorSvc, scvmclient, hxctlvm etc.
+9) ESX vSwitch info: It will display the command output of “esxcfg-vswitch -l”.
