@@ -24,16 +24,14 @@ HX controller check:
 Network check:
 1) HX User Account check: It will check hx user account is created or not.
 2) vMotion Enabled check: It will check vMotion is enabled or not in the ESX server.
-3) Check for CSCvj71618: It will check the int value(100) of  TeamPolicyUpDelay.
+3) Check for TeamPolicyUpDelay.
 4) Check ping to vmk0, eth0, eth1: It will check the below ping response:
    a) vmk0 ping to each ESXi vmk0
    b) vmk1 ping to each ESXi vmk1
    c) vmk0 ping to each SCVM eth0
    d) vmk1 ping to each SCVM eth1
 5) No extra controller vm folders: It will check any extra folder exists in the vm folders.
-   Bug: CSCvh99309
-   TZ: https://techzone.cisco.com/t5/HyperFlex/How-to-fix-stCtlVM-s-duplicate-folder/ta-p/1174364/message-revision/1174364:1
 6) ESX version check: It will display the vSphere version of the ESX server.
 7) ESX vib list check: It will display the vib list(Springpath).
 8) ESX services check: It will display the status of the services such as ntpd, hostd, vpxa, stHypervisorSvc, scvmclient, hxctlvm etc.
-9) ESX vSwitch info: It will display the command output of ìesxcfg-vswitch -lî.
+9) ESX vSwitch info: It will display the command output of ‚Äúesxcfg-vswitch -l‚Äù.
