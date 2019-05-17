@@ -26,7 +26,6 @@ Pre-requisite:  Script needs HX and ESXI root password information to check all 
 
 Steps:
 1) Download the tool(HXTool.py) and upload to the controller VM (preferably HX Cluster Management IP).
-
 2) Now run the python script file with below command:
    a) For Test summary report:
       python HXTool.py
