@@ -1,37 +1,24 @@
-	Test Info
+Test Info
 
-HX controller check:
-1) Cluster services check: It will check cluster state(online or offline), health-state(healthy or unhealthy) and the services(Springpath File System, SCVM Client, System Management Service, Cluster IP Monitor) are running or not.
-2) Enospc State check: It will check Enospc State is clear or not.
-3) ZooKeeper check: It will check mode is follower or leader or standalone.
-4) Exhibitor check: It will check exhibitor service is running or not.
-5) HDD health check: It will check number of claimed, blacklisted and ignored disks.
-6) DNS check: It will check the DNS IP is reachable or not.
-7) vCenter reachability check: It will ping to vCenter IP address and check it is reachable or not.
-8) Timestamp check: It will check timestamp of all cluster nodes are same or not.
-9) NTP sync check: It will check all cluster NTP IP address is same or not and it will ping to that IP and confirm reachable or not. Also check NTP deamon service is running or not.
-10) Cluster Upgrade check: It will check the cluster upgrade status.
-11) Extra pnodes check: It will check the number pnodes and the number cluster of cluster nodes are same or not.
-12) Disk usage(/var/stv) check: It will check the disk usage(<=80%).
-13) Out of memory check: It will check the out of memory error in the kern.log file.
-14) Check memory: It will display memory usage info.
-15) Check CPU: It will display the CPU usage info.
-16) Check cluster usage: It will check failure tolerance of node, HDD, SSD.
-17) Check cache vNodes: It will check cashe is spread across all controllers.
-18) Check package & versions: It will display the list of packages and its versions.
-19) Supported vSphere versions: It will display the supported vSphere versions.
+Hyperflex Checks: (Below checks are performed on all the storage controller VMs)
+    Cluster services check - Verifies the status of storfs, stMgr and stNodeMgr services. 
+    Enospc state check - Checks if the cluster space usage is above the warning threshold or no.     
+    Zookeeper check - Checks whether the Zookeeper is running or no.
+    Exhibitor check - Verfies the status of the Exhibitor service which manages the ZK.          
+    HDD health check - Reports if you have any blacklisted disk in your cluster.        
+    DNS check - Checks whether DNS is configured and reachable.                 
+    vCenter reachability check - Checks whether the vCenter is reachable on the required ports.
+    Timestamp check - Checks if all the controller VMs have the exact same time.           
+    NTP sync check - Checks whether NTP is reachable from the storage controller VMs and synced.           
+    Cluster upgrade check - Checks if there are any previous stale upgrade entries.     
+    Extra pnodes check - Looks for any extra/duplicate pnode entries in the cluster.       
+    Disk usage(/var/stv) check - Checks if the utilization of /var/stv is more that 80% or no.
+    Out of memory check - Checks through the log files if the cluster had any oom event.
+    Supported vSphere versions - Shows all the vSphere Versions supported with your current HXDP version.
+    Network Checks - Checks the connectivity between Mgmt and Storage network.
 
-Network check:
-1) HX User Account check: It will check hx user account is created or not.
-2) vMotion Enabled check: It will check vMotion is enabled or not in the ESX server.
-3) Check for TeamPolicyUpDelay.
-4) Check ping to vmk0, eth0, eth1: It will check the below ping response:
-   a) vmk0 ping to each ESXi vmk0
-   b) vmk1 ping to each ESXi vmk1
-   c) vmk0 ping to each SCVM eth0
-   d) vmk1 ping to each SCVM eth1
-5) No extra controller vm folders: It will check any extra folder exists in the vm folders.
-6) ESX version check: It will display the vSphere version of the ESX server.
-7) ESX vib list check: It will display the vib list(Springpath).
-8) ESX services check: It will display the status of the services such as ntpd, hostd, vpxa, stHypervisorSvc, scvmclient, hxctlvm etc.
-9) ESX vSwitch info: It will display the command output of “esxcfg-vswitch -l”.
+ESXi Checks: (Below checks are performed on each ESXI node)
+    HX User Account check - Verifies if the HXUser is created on all the esxi hosts and has admin rights.
+    vMotion enabled check - Checks if the vMotion network is confirgued.
+    Check ping to vmk0, eth0, eth1 - Checks the connectivity between the Mgmt and Storage network.
+    No extra controller vm folders check - Checks if there are any extra controller VM folders in the Springpath datastore.
