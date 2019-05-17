@@ -16,16 +16,16 @@ Supported HX Clusters
     Only supported on Hyperflex cluster on VMWare ESXi
 
 When to use?
-    Before an Hyperflex upgrade
-    Health Check before and after Maintenance Windows
-    When working with TAC and/or Opening a TAC case
-    Recommended that you provide the output from the tool while opening a TAC case
+    Before Hyperflex upgrades.
+    Hyperflex Health Check before and after Maintenance Windows
+    When working with Cisco TAC
+    Pro-active Health Check anytime.
 
 How to use the tool?
 Pre-requisite:  Script needs HX and ESXI root password information to check all conditions
 
 Steps:
-1) Download the tool(HXTool.py) and upload to the controller VM.
+1) Download the tool(HXTool.py) and upload to the controller VM (preferably HX Cluster Management IP).
 
 2) Now run the python script file with below command:
    a) For Test summary report:
