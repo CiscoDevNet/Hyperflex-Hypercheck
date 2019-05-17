@@ -12,16 +12,14 @@ Supported HX Versions
 
 Supported HX Clusters
     Hyperflex Standard Cluster
-    Hyperflex Edge Cluster (3N and 4N ROBO)
+    Hyperflex Edge Cluster (3Node and 4Node)
     Only supported on Hyperflex cluster on VMWare ESXi
-
 
 When to use?
     Before an Hyperflex upgrade
     Health Check before and after Maintenance Windows
     When working with TAC and/or Opening a TAC case
     Recommended that you provide the output from the tool while opening a TAC case
-
 
 How to use the tool?
 Pre-requisite:  Script needs HX and ESXI root password information to check all conditions
