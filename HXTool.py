@@ -2,8 +2,10 @@
 """
 Created on Fri Mar  9 13:22:07 2018
 Updated on Thu May 9
-@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
+@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade)
 """
+import warnings
+warnings.filterwarnings(action='ignore',module='.*paramiko.*')
 import subprocess
 import paramiko
 import threading
@@ -103,7 +105,9 @@ def sys_exit(val):
     log_msg(INFO, msg)
     #log_msg("", msg)
     log_stop()
-    sys.exit(val)     
+    sys.exit(val)
+
+
 
 ####################           SSH connection            #####################
 
@@ -1216,7 +1220,8 @@ if __name__ == "__main__":
     time_out = 30 # Number of seconds for timeout
     log_msg(INFO, "Timeout: " + str(time_out) + "\r")
     # Get Host IP Address of eth1
-    cmd = "hostname -i"
+    #cmd = "hostname -i"
+    cmd = "ifconfig eth1 | grep 'inet addr:' | cut -d: -f2| cut -d' ' -f1"
     op = runcmd(cmd)
     hostip = op.strip()
     log_msg(INFO, "Host IP Address: " + str(hostip) + "\r")
@@ -1252,6 +1257,7 @@ if __name__ == "__main__":
     eth1_list = list(ips)
     eth1_list.sort(key=lambda ip: map(int, reversed(ip.split('.'))))
 
+
     # Get all hostnames
     global hostd
     hostd = {}
@@ -1261,6 +1267,8 @@ if __name__ == "__main__":
     # Get Controller eth0 ips or storage controller ips
     global hxips
     hxips = []
+    hxips = eth1_list
+
     # Create instance of SSHClient object
     client = paramiko.SSHClient()
 
@@ -1268,18 +1276,23 @@ if __name__ == "__main__":
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     # Get all hostnames and HX IP address using threads
-    ipthreads = []
-    for ip in ips:
-        th = threading.Thread(target=thread_geteth0ip, args=(ip, hxusername, hxpassword, time_out,))
-        th.start()
-        time.sleep(5)
-        ipthreads.append(th)
+    """ 
+    # <hostname -i> cmd is not working
+    try:
+        ipthreads = []
+        for ip in ips:
+            th = threading.Thread(target=thread_geteth0ip, args=(ip, hxusername, hxpassword, time_out,))
+            th.start()
+            time.sleep(5)
+            ipthreads.append(th)
 
-    for t in ipthreads:
-        t.join()
+        for t in ipthreads:
+            t.join()
 
-
-    hxips.sort(key=lambda ip: map(int, reversed(ip.split('.'))))
+        hxips.sort(key=lambda ip: map(int, reversed(ip.split('.'))))
+    except Exception:
+        hxips = eth1_list
+    """
     log_msg(INFO, "HX IP Adresses: " + ", ".join(hxips) + "\r")
 
     #############################################################
