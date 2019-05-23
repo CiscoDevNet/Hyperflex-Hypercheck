@@ -5,13 +5,14 @@ Updated on Thu May 9
 @author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade)
 """
 import warnings
-warnings.filterwarnings(action='ignore',module='.*paramiko.*')
+
+warnings.filterwarnings(action='ignore', module='.*paramiko.*')
 import subprocess
 import paramiko
 import threading
 import time
 import datetime
-import logging 
+import logging
 import sys
 import os
 import shutil
@@ -22,14 +23,15 @@ from collections import OrderedDict
 from progressbar import ProgressBarThread
 from multiprocessing import Process
 
-
 ########################       Logger        #################################
 INFO = logging.INFO
 DEBUG = logging.DEBUG
 ERROR = logging.ERROR
 
+
 def get_date_time():
     return (datetime.datetime.now().strftime("%d-%m-%Y_%I-%M-%S %p"))
+
 
 def log_start(log_file, log_name, lvl):
     # Create a folder
@@ -46,41 +48,45 @@ def log_start(log_file, log_name, lvl):
     log_level = lvl
     logger = logging.getLogger(log_name)
     logger.setLevel(log_level)
-    
+
     # Create a file handler
     handler = logging.FileHandler(log_file)
     handler.setLevel(log_level)
-    
+
     # Create a logging format
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', '%m-%d-%Y %I:%M:%S %p')
     handler.setFormatter(formatter)
-    
+
     # Add the handlers to the logger
     logger.addHandler(handler)
     msg = "HX Checkup Tool Started at Date/Time :" + get_date_time().replace("_", "/") + "\r"
     global start_time
     start_time = datetime.datetime.now()
     logger.info(msg)
-    #log_msg("", msg)
+    # log_msg("", msg)
     logger.info("Logger Initialized\r")
+
 
 def log_stop():
     # Shutdown the logger handler
-    #log_msg(INFO, "Shutdown the logger")
+    # log_msg(INFO, "Shutdown the logger")
     logging.shutdown()
-    
+
+
 def log_entry(cmd_name):
     # Each function will call this in the beginning to enter any DEBUG info
     logger.log(DEBUG, 'Entered command :' + cmd_name + "\r")
-    
+
+
 def log_exit(cmd_name):
     # Each function will call this in the end, to enter any DEBUG info
     logger.log(DEBUG, 'Exited command :' + cmd_name + "\r")
-    
+
+
 def log_msg(lvl, *msgs):
     # Each function will call this to enter any INFO msg
     msg = ""
-    if len(msgs)>1:
+    if len(msgs) > 1:
         for i in msgs:
             msg = msg + str(i) + "\r\n"
         msg.rstrip("\r\n")
@@ -93,7 +99,8 @@ def log_msg(lvl, *msgs):
             print(line)
         elif line != "":
             logger.log(lvl, line)
-            
+
+
 def sys_exit(val):
     # Exit the logger and stop the script, used for traceback error handling
     log_msg(INFO, "Closing logger and exiting the application\r")
@@ -103,10 +110,9 @@ def sys_exit(val):
     time_diff = end_time - start_time
     msg = "Test duration: " + str(time_diff.seconds) + " seconds"
     log_msg(INFO, msg)
-    #log_msg("", msg)
+    # log_msg("", msg)
     log_stop()
     sys.exit(val)
-
 
 
 ####################           SSH connection            #####################
@@ -128,7 +134,7 @@ def runcmd(cmd):
 
 
 def execmd(cmd):
-    # Execute command 
+    # Execute command
     log_entry(cmd)
     log_msg(INFO, "#" * 61 + "\r")
     log_msg(INFO, "\r\nExecuting command: " + cmd + "\r")
@@ -143,13 +149,14 @@ def execmd(cmd):
     else:
         for line in stderr:
             output.append(line.strip())
-        output.insert(0,"Not able to run the command")
-    log_msg(INFO, "*"*24 + " CMD OUTPUT " + "*"*24 + "\r")
+        output.insert(0, "Not able to run the command")
+    log_msg(INFO, "*" * 24 + " CMD OUTPUT " + "*" * 24 + "\r")
     for line in output:
-        log_msg(INFO, line +"\r")
+        log_msg(INFO, line + "\r")
     log_msg(INFO, "*" * 61 + "\r")
     log_exit(cmd)
     return output
+
 
 def thread_geteth0ip(ip, hxusername, hxpassword, time_out):
     try:
@@ -157,8 +164,8 @@ def thread_geteth0ip(ip, hxusername, hxpassword, time_out):
         client.connect(hostname=ip, username=hxusername, password=hxpassword, timeout=time_out)
         msg = "\r\nSSH connection established to HX Cluster: " + ip + "\r"
         log_msg(INFO, msg)
-        #log_msg("", msg)
-        cmd = "hostname -i"
+        # log_msg("", msg)
+        cmd = "ifconfig eth0 | grep 'inet addr:' | cut -d: -f2| cut -d' ' -f1"
         hxip = execmd(cmd)
         hxips.extend(hxip)
         client.close()
@@ -167,6 +174,7 @@ def thread_geteth0ip(ip, hxusername, hxpassword, time_out):
         log_msg(INFO, msg)
         log_msg("", msg)
         log_msg(ERROR, str(e) + "\r")
+
 
 def thread_sshconnect(ip, hxusername, hxpassword, time_out):
     hostd[str(ip)] = dict.fromkeys(["hostname", "date", "ntp source", "eth1", "esxip" "vmk0", "vmk1"], "")
@@ -206,7 +214,7 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
             log_msg(ERROR, str(e) + "\r")
         # Get vmk0 and vmk1 IP Address
         try:
-            #cmd = "/usr/share/springpath/storfs-misc/run-on-esxi.sh 'esxcfg-vmknic -l'"
+            # cmd = "/usr/share/springpath/storfs-misc/run-on-esxi.sh 'esxcfg-vmknic -l'"
             # Get ESX IP
             cmd = "/opt/springpath/storfs-mgmt-cli/getLocalNode.sh | grep 'esxiIP=' | cut -d= -f2"
             op = execmd(cmd)
@@ -234,6 +242,7 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
         log_msg(ERROR, str(e) + "\r")
     finally:
         client.close()
+
 
 def get_vmk1(ip, hxusername, esxpassword, time_out):
     esxip = hostd[ip]["esxip"]
@@ -268,6 +277,7 @@ def get_vmk1(ip, hxusername, esxpassword, time_out):
         finally:
             client.close()
 
+
 def cluster_services_check(ip):
     # 1) stcli cluster info
     cldict = {}
@@ -285,7 +295,7 @@ def cluster_services_check(ip):
     cmd = "sysmtool --ns cluster --cmd healthdetail"
     cl_health = execmd(cmd)
     cl_health_reason = []
-    flag2 = flag3 = flag4 = 0  
+    flag2 = flag3 = flag4 = 0
     global nodes
     nodes = ""
     for line in cl_health:
@@ -294,7 +304,7 @@ def cluster_services_check(ip):
             continue
         if flag2 == 1 and line.startswith("State:"):
             s = str(line.split(": ")[-1]).lower()
-            if cldict["State"] == s :
+            if cldict["State"] == s:
                 pass
             else:
                 cldict["State"] = s
@@ -320,7 +330,7 @@ def cluster_services_check(ip):
     log_msg(INFO, str(cldict) + "\r")
     hostd[ip].update(cldict)
 
-    # 3) service_status.sh 
+    # 3) service_status.sh
     cmd = "service_status.sh"
     cl_service = execmd(cmd)
     # pidof storfs
@@ -331,8 +341,8 @@ def cluster_services_check(ip):
         if s.isdigit():
             cl_service.append("storfs {:>44}".format("... Running"))
         else:
-            cl_service.append("storfs {:>44}".format("... Not Running"))   
-    # pidof stMgr
+            cl_service.append("storfs {:>44}".format("... Not Running"))
+            # pidof stMgr
     cmd = "pidof stMgr"
     op = execmd(cmd)
     for line in op:
@@ -349,9 +359,9 @@ def cluster_services_check(ip):
         if s.isdigit():
             cl_service.append("stNodeMgr {:>41}".format("... Running"))
         else:
-            cl_service.append("stNodeMgr {:>41}".format("... Not Running"))  
-    
-    # 4) sysmtool --ns cluster --cmd enospcinfo
+            cl_service.append("stNodeMgr {:>41}".format("... Not Running"))
+
+            # 4) sysmtool --ns cluster --cmd enospcinfo
     cmd = "sysmtool --ns cluster --cmd enospcinfo"
     cl_space = execmd(cmd)
     free_capacity = ""
@@ -365,22 +375,22 @@ def cluster_services_check(ip):
         if "ENOSPC warning:" in line:
             ENOSPC_warning = line.strip().split(": ")[1]
     if free_capacity[-1] == ENOSPC_warning[-1]:
-        if float(free_capacity[:-1])>= float(ENOSPC_warning[:-1]):
+        if float(free_capacity[:-1]) >= float(ENOSPC_warning[:-1]):
             space_state = "healthy"
         else:
             space_state = "unhealthy"
     elif free_capacity[-1] == "T":
-        if (float(free_capacity[:-1])*1024)>= float(ENOSPC_warning[:-1]):
+        if (float(free_capacity[:-1]) * 1024) >= float(ENOSPC_warning[:-1]):
             space_state = "healthy"
         else:
             space_state = "unhealthy"
     elif free_capacity[-1] == "G":
-        if (float(free_capacity[:-1])*1024)>= float(ENOSPC_warning[:-1]):
+        if (float(free_capacity[:-1]) * 1024) >= float(ENOSPC_warning[:-1]):
             space_state = "healthy"
         else:
             space_state = "unhealthy"
     elif free_capacity[-1] == "M":
-        if (float(free_capacity[:-1])*1024*1024)>= float(ENOSPC_warning[:-1]):
+        if (float(free_capacity[:-1]) * 1024 * 1024) >= float(ENOSPC_warning[:-1]):
             space_state = "healthy"
         else:
             space_state = "unhealthy"
@@ -453,7 +463,8 @@ def cluster_services_check(ip):
             break
     testsum[ip].update({"Cluster services check": cluster_service_chk})
     testsum[ip].update({"Enospc state check": enospc_state_check})
-    
+
+
 def zookeeper_check(ip):
     # ZooKeeper and Exhibitor check
     # echo srvr | nc localhost 2181
@@ -463,7 +474,7 @@ def zookeeper_check(ip):
     for line in zkl:
         if "Mode:" in line:
             mode = line.split(": ")[1]
-    
+
     # pidof exhibitor
     cmd = "pidof exhibitor"
     exhl = execmd(cmd)
@@ -476,20 +487,20 @@ def zookeeper_check(ip):
             exh_service = "exhibitor {:>32}".format("... Running")
         else:
             exh_service = "exhibitor {:>32}".format("... Not Running")
-            zcond1 = 1    
+            zcond1 = 1
     if zcond1 == 1:
         cmd = "ls /etc/springpath/*"
         op = execmd(cmd)
-        exh_comm.append("Files in the path[/etc/springpath/*]") 
+        exh_comm.append("Files in the path[/etc/springpath/*]")
         for line in op:
-            exh_comm.append(line.strip()) 
+            exh_comm.append(line.strip())
         cmd = "ls /opt/springpath/config/*"
         op = execmd(cmd)
-        exh_comm.append("\nFiles in the path[/opt/springpath/config/*]") 
+        exh_comm.append("\nFiles in the path[/opt/springpath/config/*]")
         for line in op:
-            exh_comm.append(line.strip())    
-            
-    # ls /etc/exhibitor/exhibitor.properties
+            exh_comm.append(line.strip())
+
+            # ls /etc/exhibitor/exhibitor.properties
     cmd = "ls /etc/exhibitor/exhibitor.properties"
     op = execmd(cmd)
     prop_file = ""
@@ -526,7 +537,6 @@ def zookeeper_check(ip):
     # Current Epoch value
     testdetail[ip]["ZooKeeper and Exhibitor check"]["Current Epoch value"] = curepoch
 
-
     # Update Test summary
     zoo_chk = "FAIL"
     exh_chk = "FAIL"
@@ -536,7 +546,8 @@ def zookeeper_check(ip):
         exh_chk = "PASS"
     testsum[ip].update({"Zookeeper check": zoo_chk})
     testsum[ip].update({"Exhibitor check": exh_chk})
-    
+
+
 def hdd_check(ip):
     # HDD health check
     # sysmtool --ns disk --cmd list
@@ -585,7 +596,7 @@ def hdd_check(ip):
     # Claimed
     testdetail[ip]["HDD health check"]["Claimed"] = cdsk
 
-    #Blacklisted
+    # Blacklisted
     testdetail[ip]["HDD health check"]["Blacklisted"] = {"Status": bdsk, "Result": "\n".join(bdisklist)}
 
     # Ignored
@@ -596,6 +607,7 @@ def hdd_check(ip):
     if int(bdsk) > int(cdsk):
         hd_chk = "FAIL"
     testsum[ip].update({"HDD health check": hd_chk})
+
 
 # Pre-Upgrade Check
 def pre_upgrade_check(ip):
@@ -614,7 +626,7 @@ def pre_upgrade_check(ip):
             ntp_deamon_check = "PASS"
             msg = "\r\nNTP deamon running check: " + str(ntp_deamon) + "\r"
             log_msg(INFO, msg)
-            #print(match.group())
+            # print(match.group())
     # 3) NTP Sync Check
     cmd = "ntpq -p -4"
     ntpsl = execmd(cmd)
@@ -642,9 +654,9 @@ def pre_upgrade_check(ip):
     for line in op:
         match = re.search(r"(?:\d{1,3}.){3}\d{1,3}", line)
         if match:
-           dnsip = match.group()
-           msg = "\r\nDNS IP Address: " + str(dnsip) + "\r"
-           log_msg(INFO, msg)
+            dnsip = match.group()
+            msg = "\r\nDNS IP Address: " + str(dnsip) + "\r"
+            log_msg(INFO, msg)
     if dnsip:
         cmd = "ping {} -c 3 -i 0.01".format(dnsip)
         op = execmd(cmd)
@@ -662,9 +674,9 @@ def pre_upgrade_check(ip):
     for line in op:
         match = re.search(r"(?:\d{1,3}.){3}\d{1,3}", line)
         if match:
-           vcenterip = match.group()
-           msg = "\r\nvCenter IP Address: " + str(vcenterip) + "\r"
-           log_msg(INFO, msg)
+            vcenterip = match.group()
+            msg = "\r\nvCenter IP Address: " + str(vcenterip) + "\r"
+            log_msg(INFO, msg)
         else:
             try:
                 l = line.split(":")
@@ -715,7 +727,7 @@ def pre_upgrade_check(ip):
         m = re.search(r"^\d+\s+([\d]{1,3}(.[\d]{1,3}){3})", line)
         if m:
             cachl.append(str(m.group(1)))
-    #print(cachl)
+    # print(cachl)
 
     # 7) Cluster Upgrade status
     cmd = "stcli cluster upgrade-status"
@@ -732,9 +744,9 @@ def pre_upgrade_check(ip):
     op = execmd(cmd)
     op = "".join(op)
     pnodes = int(op)
-    #cmd = "stcli cluster info | grep -i  stctl_mgmt -n1 | grep -i addr | wc -l"
-    #op = execmd(cmd)
-    #op = "".join(op)
+    # cmd = "stcli cluster info | grep -i  stctl_mgmt -n1 | grep -i addr | wc -l"
+    # op = execmd(cmd)
+    # op = "".join(op)
     snodes = len(eth1_list)
     nodecheck = "FAIL"
     if pnodes == snodes:
@@ -743,13 +755,13 @@ def pre_upgrade_check(ip):
     # 9) Check Disk usage(/var/stv)
     cmd = "df -h | grep -i /var/stv"
     dskusg = ""
-    dskst  = ""
+    dskst = ""
     op = execmd(cmd)
     for line in op:
         m = re.search(r"(\d+)%", line)
         if m:
             dskusg = m.group(1)
-            if int(dskusg) <= 80 :
+            if int(dskusg) <= 80:
                 dskst = "Good"
                 testsum[ip].update({"Disk usage(/var/stv) check": "PASS"})
             else:
@@ -771,7 +783,7 @@ def pre_upgrade_check(ip):
         cmd = "top -b -n 1 | grep Cpu"
         check_cpu = execmd(cmd)
     # check Out of memory
-    #cmd = "cat /var/log/kern.log | grep -i 'out of memory' -A5"
+    # cmd = "cat /var/log/kern.log | grep -i 'out of memory' -A5"
     cmd = "grep -i 'out of memory' -A5 /var/log/kern.log"
     op = execmd(cmd)
     if "Not able to run the command" in op:
@@ -809,14 +821,17 @@ def pre_upgrade_check(ip):
     allhostdt = []
     for i in sorted(hostd.keys()):
         allhostdt.append(str(i) + " - " + str(hostd[i]["date"]))
-    testdetail[ip]["Pre-Upgrade check"]["Timestamp check"] = {"Status": str("\n".join(allhostdt)), "Result": str(hostd[ip]["date check"])}
+    testdetail[ip]["Pre-Upgrade check"]["Timestamp check"] = {"Status": str("\n".join(allhostdt)),
+                                                              "Result": str(hostd[ip]["date check"])}
     # Primary NTP Source check
     allntpsrc = []
     for p in sorted(hostd.keys()):
         allntpsrc.append(str(p) + " : NTP IP - " + str(hostd[p]["ntp source"]))
-    testdetail[ip]["Pre-Upgrade check"]["Primary NTP Source check"] = {"Status": str("\n".join(allntpsrc)), "Result": str(hostd[ip]["ntp source check"])}
+    testdetail[ip]["Pre-Upgrade check"]["Primary NTP Source check"] = {"Status": str("\n".join(allntpsrc)),
+                                                                       "Result": str(hostd[ip]["ntp source check"])}
     # Cluster usage
-    testdetail[ip]["Pre-Upgrade check"]["Cluster Fault Tolerance"] = "Node Failures Tolerable:" + str(NFT) + "\nHDD Failures Tolerable:" + str(HFT) + "\nSSD Failures Tolerable:" + str(SFT)
+    testdetail[ip]["Pre-Upgrade check"]["Cluster Fault Tolerance"] = "Node Failures Tolerable:" + str(
+        NFT) + "\nHDD Failures Tolerable:" + str(HFT) + "\nSSD Failures Tolerable:" + str(SFT)
     # Cache usage
     testdetail[ip]["Pre-Upgrade check"]["Cache vNodes"] = str("\n".join(cachl))
     # Cluster Upgrade
@@ -843,6 +858,7 @@ def pingstatus(op):
         if "0 packets received" in line:
             pgst = "FAIL"
     return pgst
+
 
 def network_check(ip):
     try:
@@ -899,7 +915,7 @@ def network_check(ip):
                 op = execmd(cmd)
                 nop = []
                 for line in op:
-                    nop.append(line.replace(" "*26, "    "))
+                    nop.append(line.replace(" " * 26, "    "))
                 opd.update({"ESX Vib List": nop})
             except Exception:
                 pass
@@ -932,12 +948,12 @@ def network_check(ip):
                     op = execmd(cmd)
                     pst = pingstatus(op)
                     cm = "vmkping -I {} -c 3 -d -s 1472 -i 0.01 {}".format("vmk0", h)
-                    opd.update({cm : pst})
+                    opd.update({cm: pst})
                     allpingchk.append(pst)
                 except Exception:
                     pass
             # vmk1 ping to each ESXi vmk1
-            if len(vmk1_list) > 0 :
+            if len(vmk1_list) > 0:
                 for k in vmk1_list:
                     try:
                         cmd = "vmkping -I {} -c 3 -d -s 8972 -i 0.01 {}'".format("vmk1", k)
@@ -949,7 +965,7 @@ def network_check(ip):
                     except Exception:
                         pass
             # vmk0 ping to each SCVM eth0
-            if len(hxips) > 0 :
+            if len(hxips) > 0:
                 for h in hxips:
                     try:
                         cmd = "vmkping -I {} -c 3 -d -s 1472 -i 0.01 {}".format("vmk0", h)
@@ -961,7 +977,7 @@ def network_check(ip):
                     except Exception:
                         pass
             # vmk1 ping to each SCVM eth1
-            if len(eth1_list) > 0 :
+            if len(eth1_list) > 0:
                 for k in eth1_list:
                     try:
                         cmd = "vmkping -I {} -c 3 -d -s 8972 -i 0.01 {}".format("vmk1", k)
@@ -990,10 +1006,10 @@ def network_check(ip):
                 op = execmd(cmd)
                 op = [x for x in op if x != ""]
                 vmfld = "PASS"
-                #print(len(op))
+                # print(len(op))
                 if op:
                     if len(op) > 1:
-                        vmfld = "FAIL" + "\nBug: CSCvh99309" + "\ntz: https://techzone.cisco.com/t5/HyperFlex/How-to-fix-stCtlVM-s-duplicate-folder/ta-p/1174364/message-" +"\nrevision/1174364:1"
+                        vmfld = "FAIL" + "\nBug: CSCvh99309" + "\ntz: https://techzone.cisco.com/t5/HyperFlex/How-to-fix-stCtlVM-s-duplicate-folder/ta-p/1174364/message-" + "\nrevision/1174364:1"
                 opd.update({"No extra controller vm folders": vmfld})
             except Exception:
                 pass
@@ -1007,8 +1023,9 @@ def network_check(ip):
             # vMotion enabled check
             nwtestsum[esxip]["vMotion enabled check"] = vmst
             # Check for HX down during upgrade
-            #nwtestsum[esxip]["Check for HX down during upgrade"] = check_HX_down_status[:4]
-            nwtestsum[esxip]["Check for ESXI Failback timer"] = {"Status": check_HX_down_status, "Result": "If Failed, Change the failback timer to 30secs" + "\nesxcli system settings advanced set -o /Net/TeamPolicyUpDelay --int-value 30000"}
+            # nwtestsum[esxip]["Check for HX down during upgrade"] = check_HX_down_status[:4]
+            nwtestsum[esxip]["Check for ESXI Failback timer"] = {"Status": check_HX_down_status,
+                                                                 "Result": "If Failed, Change the failback timer to 30secs" + "\nesxcli system settings advanced set -o /Net/TeamPolicyUpDelay --int-value 30000"}
             # Check ping to vmk0, eth0, eth1
             if "FAIL" in allpingchk:
                 nwtestsum[esxip]["Check ping to vmk0, eth0, eth1"] = "FAIL"
@@ -1020,14 +1037,14 @@ def network_check(ip):
     except Exception as e:
         msg = "\r\nNot able to establish SSH connection to ESX Host: " + esxip + "\r"
         log_msg(INFO, msg)
-        #log_msg("", msg)
+        # log_msg("", msg)
         log_msg(ERROR, str(e) + "\r")
 
 
 def create_sub_report(ip):
     # create HX controller report file
     global subreportfiles
-    filename = "HX_Report_" + str(ip) +".txt"
+    filename = "HX_Report_" + str(ip) + ".txt"
     subreportfiles.append(filename)
     with open(filename, "w") as fh:
         fh.write("\t\t\tHX Controller: " + ip)
@@ -1052,7 +1069,7 @@ def create_sub_report(ip):
             fh.write("\r\n")
             n += 1
 
-    #print("\r\nSub Report File: " + filename)
+    # print("\r\nSub Report File: " + filename)
     log_msg(INFO, "Sub Report File: " + filename + "\r")
 
 
@@ -1062,7 +1079,7 @@ def display_result():
         print("")
         for ip in testdetail.keys():
             print("\r\n\t\t\tHX Controller: " + ip)
-            print("#"*80)
+            print("#" * 80)
             n = 1
             for cname in testdetail[ip].keys():
                 print("\r\n" + str(n) + ") " + cname)
@@ -1197,16 +1214,17 @@ def create_main_report():
         fh.write("\r\n")
     print("\r\nMain Report File: " + filename)
 
+
 ##############################################################################
-#   Main 
-##############################################################################    
+#   Main
+##############################################################################
 if __name__ == "__main__":
     # Log file declaration
     log_file = "HX_Tool_" + get_date_time() + ".log"
     log_name = "HX_TOOL"
     log_start(log_file, log_name, INFO)
 
-    #RSA_KEY_FILE = "/etc/ssh/ssh_host_rsa_key"
+    # RSA_KEY_FILE = "/etc/ssh/ssh_host_rsa_key"
     # HX Controller parameter
     print("Please enter below info of HX-Cluster:")
     hxusername = "root"
@@ -1217,10 +1235,10 @@ if __name__ == "__main__":
     hostip = ""
     hostpath = ""
     log_msg(INFO, "Port: " + str(port) + "\r")
-    time_out = 30 # Number of seconds for timeout
+    time_out = 30  # Number of seconds for timeout
     log_msg(INFO, "Timeout: " + str(time_out) + "\r")
     # Get Host IP Address of eth1
-    #cmd = "hostname -i"
+    # cmd = "hostname -i"
     cmd = "ifconfig eth1 | grep 'inet addr:' | cut -d: -f2| cut -d' ' -f1"
     op = runcmd(cmd)
     hostip = op.strip()
@@ -1257,7 +1275,6 @@ if __name__ == "__main__":
     eth1_list = list(ips)
     eth1_list.sort(key=lambda ip: map(int, reversed(ip.split('.'))))
 
-
     # Get all hostnames
     global hostd
     hostd = {}
@@ -1267,7 +1284,6 @@ if __name__ == "__main__":
     # Get Controller eth0 ips or storage controller ips
     global hxips
     hxips = []
-    hxips = eth1_list
 
     # Create instance of SSHClient object
     client = paramiko.SSHClient()
@@ -1276,7 +1292,7 @@ if __name__ == "__main__":
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     # Get all hostnames and HX IP address using threads
-    """ 
+
     # <hostname -i> cmd is not working
     try:
         ipthreads = []
@@ -1292,7 +1308,7 @@ if __name__ == "__main__":
         hxips.sort(key=lambda ip: map(int, reversed(ip.split('.'))))
     except Exception:
         hxips = eth1_list
-    """
+
     log_msg(INFO, "HX IP Adresses: " + ", ".join(hxips) + "\r")
 
     #############################################################
@@ -1313,13 +1329,12 @@ if __name__ == "__main__":
     for t in threads:
         t.join()
 
-
     global ht
     ht = PrettyTable(hrules=ALL)
     ht.field_names = ["Nodes", "IP Address", "HostName"]
     ht.align = "l"
     for i, ip in enumerate(hxips):
-        ht.add_row([i+1, ip, hostd[ip].get("hostname", "")])
+        ht.add_row([i + 1, ip, hostd[ip].get("hostname", "")])
     print("\r\nHX Cluster Nodes:")
     print(ht)
     print("")
@@ -1432,7 +1447,7 @@ if __name__ == "__main__":
     # Bug details table
     bugs = {
         "HX down": "HX cluster goes down during the UCS infra upgrade. This is because of the default failback delay interval(10sec) on ESXi." + "\nDefault Value - 10sec" + "\nModify to - 30sec"
-        }
+    }
     global bgt
     bgt = PrettyTable(hrules=ALL)
     bgt.field_names = ["Bug", "Description"]
@@ -1514,7 +1529,7 @@ if __name__ == "__main__":
         except Exception as e:
             msg = "\r\nNot able to establish SSH connection to HX Cluster: " + ip + "\r"
             log_msg(INFO, msg)
-            #log_msg("", msg)
+            # log_msg("", msg)
             log_msg(ERROR, str(e) + "\r")
             # sys_exit(0)
             # stop progressbar
@@ -1523,10 +1538,6 @@ if __name__ == "__main__":
             continue
 
     ###############################################################
-
-
-
-
 
     # Display the test result
     display_result()
