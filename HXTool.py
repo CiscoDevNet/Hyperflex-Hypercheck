@@ -994,7 +994,7 @@ def network_check(ip):
                 #print(len(op))
                 if op:
                     if len(op) > 1:
-                        vmfld = "FAIL" + "\nBug: CSCvh99309" + "\ntz: https://techzone.cisco.com/t5/HyperFlex/How-to-fix-stCtlVM-s-duplicate-folder/ta-p/1174364/message-" +"\nrevision/1174364:1"
+                        vmfld = "FAIL"
                 opd.update({"No extra controller vm folders": vmfld})
             except Exception:
                 pass
