@@ -2,7 +2,7 @@
 """
 Created on Fri Mar  9 13:22:07 2018
 Updated on Thu May 9
-@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash (avshukla)
+@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
 """
 import warnings
 warnings.filterwarnings(action='ignore',module='.*paramiko.*')
@@ -994,7 +994,7 @@ def network_check(ip):
                 #print(len(op))
                 if op:
                     if len(op) > 1:
-                        vmfld = "FAIL"
+                        vmfld = "FAIL" + "\nBug: CSCvh99309" + "\ntz: https://techzone.cisco.com/t5/HyperFlex/How-to-fix-stCtlVM-s-duplicate-folder/ta-p/1174364/message-" +"\nrevision/1174364:1"
                 opd.update({"No extra controller vm folders": vmfld})
             except Exception:
                 pass
@@ -1031,6 +1031,8 @@ def create_sub_report(ip):
     filename = "HX_Report_" + str(ip) +".txt"
     subreportfiles.append(filename)
     with open(filename, "w") as fh:
+        fh.write("\t\t\t     HX Health Check " + str(ver))
+        fh.write("\r\n")
         fh.write("\t\t\tHX Controller: " + ip)
         fh.write("\r\n")
         fh.write("#" * 80)
@@ -1204,15 +1206,40 @@ def create_main_report():
 #   Main 
 ##############################################################################    
 if __name__ == "__main__":
+    # HX Script version
+    global ver
+    ver = 2.0
+    # Arguments passed
+    global arg
+    arg = ""
+    if len(sys.argv) > 1:
+        try:
+            arg = (sys.argv[1]).lower()
+        except Exception:
+            pass
+    if arg == "-h" or arg == "--help" or arg == "help":
+        print("\n\t\t HX Health Check " + str(ver))
+        print("\nSupported HX Versions: 2.6, 3.0, 3.5, 4.0")
+        print("\nPre-requisite: Script needs HX and ESXi root password information to check all conditions.")
+        print("\nHX Health Check script will do below checks on each cluster nodes:")
+        print("\t 1) Cluster services check")
+        print("\t 2) ZooKeeper & Exhibitor check")
+        print("\t 3) HDD health check")
+        print("\t 4) Pre-Upgrade Check")
+        print("\t 5) Network check ")
+        print("\nFor Test Summary report run as below:")
+        print("\t python HXTool.py")
+        print("\nFor Test detail report run as below:")
+        print("\t python HXTool.py detail\n")
+        sys.exit(0)
+
     # Log file declaration
     log_file = "HX_Tool_" + get_date_time() + ".log"
     log_name = "HX_TOOL"
     log_start(log_file, log_name, INFO)
 
     #RSA_KEY_FILE = "/etc/ssh/ssh_host_rsa_key"
-    # HX Script version
-    global ver
-    ver = 8.0
+
     print("\n\t\t HX Health Check " + str(ver))
     log_msg(INFO, "HX Health Check " + str(ver) + "\r")
     # HX Controller parameter
@@ -1238,16 +1265,10 @@ if __name__ == "__main__":
     op = runcmd(cmd)
     hostpath = op.strip()
     log_msg(INFO, "Host Path: " + str(hostpath) + "\r")
-    # Arguments passed
-    global arg
-    arg = ""
-    if len(sys.argv) > 1:
-        try:
-            arg = (sys.argv[1]).lower()
-            log_msg(INFO, "Argument: " + str(arg) + "\r")
-            print("Option: " + str(arg))
-        except Exception:
-            pass
+    log_msg(INFO, "Argument: " + str(arg) + "\r")
+    if arg == "detail":
+        print("Option: " + str(arg))
+
     # Get Controller Mgmnt IP Addresses
     # Old cmd used to get controller IP Addresses
     # cmd1 = "stcli cluster info | grep -i  stctl_mgmt -n1 | grep -i addr"
