@@ -1,6 +1,6 @@
 Introduction
 
-• The Hypercheck tool is a utility to perform pro-active self checks on Hypoerflex clusters to ensure its stability and resiliency.
+• The Hypercheck tool is a utility to perform pro-active self checks on Hyperflex clusters to ensure its stability and resiliency.
 • It also helps perform automated pre-upgrade checks to have a better upgrade experience.
 • The tool automates a list of checks on Hyperflex System saving time during Maintenance activity and Upgrade processes.
 
