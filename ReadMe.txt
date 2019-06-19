@@ -5,6 +5,7 @@ Introduction
 • The tool automates a list of checks on Hyperflex System saving time during Maintenance activity and Upgrade processes.
 
 Supported HX Versions
+    2.5
     2.6
     3.0
     3.5
