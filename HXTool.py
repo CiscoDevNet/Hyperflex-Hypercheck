@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar  9 13:22:07 2018
-Updated on Thu May 9
+Updated on Thu June 26
 @author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
 """
 import warnings
@@ -237,7 +237,7 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
         client.close()
 
 def get_vmk1(ip, hxusername, esxpassword, time_out):
-    esxip = hostd[ip]["esxip"]
+    esxip = hostd[ip].get("esxip", "")
     if esxip != "":
         try:
             # Initiate SSH Connection
@@ -763,8 +763,19 @@ def pre_upgrade_check(ip):
     for line in op:
         check_package_version.append(line.replace(" " * 26, "    "))
     # check memory
-    cmd = "free -m"
-    check_memory = execmd(cmd)
+    #cmd = "free -m"
+    cmd = "free -m | grep Mem:"
+    op = execmd(cmd)
+    check_memory = "NA"
+    if op:
+        for line in op:
+            l = line.split()
+            frmem = l[3]
+            if int(frmem) >= 2048:
+                check_memory = "PASS"
+            else:
+                check_memory = "FAIL"
+    testsum[ip].update({"Memory usage check": check_memory})
     # check CPU
     cmd = "top -b -n 1 | grep -B7 KiB"
     check_cpu = execmd(cmd)
@@ -777,10 +788,10 @@ def pre_upgrade_check(ip):
     op = execmd(cmd)
     if "Not able to run the command" in op:
         check_oom = ["No issue"]
-        testsum[ip].update({"Out of memory check": "PASS"})
+        testsum[ip].update({"Incidence of OOM in the log file": "PASS"})
     else:
         check_oom = op
-        testsum[ip].update({"Out of memory check": "FAIL"})
+        testsum[ip].update({"Incidence of OOM in the log file": "FAIL"})
     # ESXi supported upgrade
     cmd = "grep -i ^esxi.version /usr/share/springpath/storfs-fw/springpath-hcl.conf"
     op = execmd(cmd)
@@ -829,11 +840,11 @@ def pre_upgrade_check(ip):
     # Check package & versions
     testdetail[ip]["Pre-Upgrade check"]["Check package & versions"] = str("\n".join(check_package_version))
     # Check memory
-    testdetail[ip]["Pre-Upgrade check"]["Check memory"] = str("\n".join(check_memory))
+    testdetail[ip]["Pre-Upgrade check"]["Check Memory usage"] = str(check_memory)
     # Check CPU
     testdetail[ip]["Pre-Upgrade check"]["Check CPU"] = str("\n".join(check_cpu))
     # Check Out of memory
-    testdetail[ip]["Pre-Upgrade check"]["Check Out of memory"] = str("\n".join(check_oom))
+    testdetail[ip]["Pre-Upgrade check"]["Incidence of OOM in the log file"] = str("\n".join(check_oom))
     # Supported vSphere versions
     testdetail[ip]["Pre-Upgrade check"]["Supported vSphere versions"] = str("\n".join(svsp))
 
@@ -987,14 +998,20 @@ def network_check(ip):
                 op = execmd(cmd)
                 op = "".join(op)
                 srno = op.split(":")[1]
-                cmd = "ls -d /vmfs/volumes/SpringpathDS-" + str(srno.strip())
+                cmd = "ls /vmfs/volumes/SpringpathDS-" + str(srno.strip())
                 op = execmd(cmd)
                 op = [x for x in op if x != ""]
                 vmfld = "PASS"
                 #print(len(op))
+                fcnt = 0
                 if op:
-                    if len(op) > 1:
-                        vmfld = "FAIL" + "\nBug: CSCvh99309" + "\ntz: https://techzone.cisco.com/t5/HyperFlex/How-to-fix-stCtlVM-s-duplicate-folder/ta-p/1174364/message-" +"\nrevision/1174364:1"
+                    for line in op:
+                        l = line.split()
+                        for d in l:
+                            if d.startswith("stCtlVM"):
+                                fcnt += 1
+                if fcnt > 1:
+                        vmfld = "FAIL" + "\nBug: CSCvh99309" + "\ntz: https://techzone.cisco.com/t5/HyperFlex/How-to-fix-stCtlVM-s-duplicate-folder/ta-p/1174364/" +"\nmessage-revision/1174364:1"
                 opd.update({"No extra controller vm folders": vmfld})
             except Exception:
                 pass
@@ -1336,7 +1353,7 @@ if __name__ == "__main__":
     for ip in hxips:
         th = threading.Thread(target=thread_sshconnect, args=(ip, hxusername, hxpassword, time_out,))
         th.start()
-        time.sleep(15)
+        time.sleep(20)
         threads.append(th)
 
     for t in threads:
@@ -1412,7 +1429,7 @@ if __name__ == "__main__":
     global esx_hostsl
     esx_hostsl = []
     for ip in hostd.keys():
-        esxip = hostd[ip]["esxip"]
+        esxip = hostd[ip].get("esxip", "")
         if esxip != "":
             esx_hostsl.append(esxip)
 
