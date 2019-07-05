@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar  9 13:22:07 2018
-Updated on Thu June 26
+Updated on Thu May 9
 @author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
 """
 import warnings
@@ -1011,7 +1011,7 @@ def network_check(ip):
                             if d.startswith("stCtlVM"):
                                 fcnt += 1
                 if fcnt > 1:
-                        vmfld = "FAIL" + "\nBug: CSCvh99309" + "\ntz: https://techzone.cisco.com/t5/HyperFlex/How-to-fix-stCtlVM-s-duplicate-folder/ta-p/1174364/" +"\nmessage-revision/1174364:1"
+                        vmfld = "FAIL" + "\nBug: HX Down"
                 opd.update({"No extra controller vm folders": vmfld})
             except Exception:
                 pass
