@@ -40,3 +40,7 @@ Steps:
 
 Test Details:
 Detail info of the test are available in the file(TestInfo.txt).
+
+Refer the following for more information on Hypercheck Tool-
+https://www.cisco.com/c/en/us/support/docs/hyperconverged-infrastructure/hyperflex-hx-data-platform/214101-hypercheck-hyperflex-health-pre-upgr.html
+
