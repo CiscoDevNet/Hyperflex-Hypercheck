@@ -26,17 +26,18 @@ How to use the tool?
 Pre-requisite:  Script needs HX and ESXI root password information to check all conditions
 
 Steps:
-1) Download the Hyperflex-Hypercheck.zip file, upload it to the SCVM (preferably HX Cluster Management IP).
-2) unzip the Hyperflex-Hypercheck.zip (#unzip Hyperflex-Hypercheck.zip)
-3) Change directory to Hyperflex-Hypercheck (# cd Hyperflex-Hypercheck)
-4) Now run the python script file with below command:
+1) In GitHub, click on the “Clone or download” button and choose the “Download ZIP” option. This will download a file titled “Hyberflex-Hybercheck-master.zip”
+2) Upload Hyberflex-Hybercheck-master.zip to the SCVM (preferably HX Cluster Management IP).
+3) unzip the Hyberflex-Hybercheck-master.zip (#unzip Hyberflex-Hybercheck-master.zip)
+4) Change directory to Hyperflex-Hypercheck-master (# cd Hyperflex-Hypercheck-master)
+5) Now run the python script file with below command:
    a) For Test summary report:
       python HXTool.py
    b) For Test detail report:
       python HXTool.py detail
-5) Enter the HX root password.
-6) Enter the ESXi root password.
-7) Script will display the result on the console and also creates each node report(HX Report 10.X.X.79.txt) and main report txt file(HX Tool Main Report.txt) in the HX_Report_<timestamp> folder.
+6) Enter the HX root password.
+7) Enter the ESXi root password.
+8) Script will display the result on the console and also creates each node report(HX Report 10.X.X.79.txt) and main report txt file(HX Tool Main Report.txt) in the HX_Report_<timestamp> folder.
 
 Test Details:
 Detail info of the test are available in the file(TestInfo.txt).
