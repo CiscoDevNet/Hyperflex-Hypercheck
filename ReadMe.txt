@@ -26,9 +26,9 @@ How to use the tool?
 Pre-requisite:  Script needs HX and ESXI root password information to check all conditions
 
 Steps:
-1) In GitHub, click on the “Clone or download” button and choose the “Download ZIP” option. This will download a file titled “Hyberflex-Hybercheck-master.zip”
-2) Upload Hyberflex-Hybercheck-master.zip to the SCVM (preferably HX Cluster Management IP).
-3) unzip the Hyberflex-Hybercheck-master.zip (#unzip Hyberflex-Hybercheck-master.zip)
+1) In GitHub, click on the “Clone or download” button and choose the “Download ZIP” option. This will download a file titled “Hyperflex-Hypercheck-master.zip”
+2) Upload Hyperflex-Hypercheck-master.zip to the SCVM (preferably HX Cluster Management IP).
+3) unzip the Hyperflex-Hypercheck-master.zip (#unzip Hyperflex-Hypercheck-master.zip)
 4) Change directory to Hyperflex-Hypercheck-master (# cd Hyperflex-Hypercheck-master)
 5) Now run the python script file with below command:
    a) For Test summary report:
