@@ -9,7 +9,9 @@ Hyperflex Checks: (Below checks are performed on all the storage controller VMs)
     DNS check - Checks whether DNS is configured and reachable.                 
     vCenter reachability check - Checks whether the vCenter is reachable on the required ports.
     Timestamp check - Checks if all the controller VMs have the exact same time.           
-    NTP sync check - Checks whether NTP is reachable from the storage controller VMs and synced.           
+    NTP sync check - Checks whether NTP is reachable from the storage controller VMs and synced.
+    Check package & versions - Checks for packages and versions on Storage Controller VMs.
+    Check Iptables count - Checks for Iptables count on and ensure iStorage Controller VMs.          
     Cluster upgrade check - Checks if there are any previous stale upgrade entries.     
     Extra pnodes check - Looks for any extra/duplicate pnode entries in the cluster.       
     Disk usage(/var/stv) check - Checks if the utilization of /var/stv is more that 80% or no.
@@ -20,5 +22,7 @@ Hyperflex Checks: (Below checks are performed on all the storage controller VMs)
 ESXi Checks: (Below checks are performed on each ESXI node)
     HX User Account check - Verifies if the HXUser is created on all the esxi hosts and has admin rights.
     vMotion enabled check - Checks if the vMotion network is confirgued.
+    Check for ESXI Failback timer - Check for ESXi Failback timer on ESXi host.
     Check ping to vmk0, eth0, eth1 - Checks the connectivity between the Mgmt and Storage network.
     No extra controller vm folders check - Checks if there are any extra controller VM folders in the Springpath datastore.
+    Check the dumpfile in springpathDS - Check to confirm if SpringpathDS is configured for coredump.
