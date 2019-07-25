@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar  9 13:22:07 2018
-Updated on Thu May 9
+Updated on Thu Jul 25
 @author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
 """
 import warnings
@@ -29,12 +29,12 @@ DEBUG = logging.DEBUG
 ERROR = logging.ERROR
 
 def get_date_time():
-    return (datetime.datetime.now().strftime("%d-%m-%Y_%I-%M-%S %p"))
+    return (datetime.datetime.now().strftime("%d-%m-%Y_%I-%M-%S"))
 
 def log_start(log_file, log_name, lvl):
     # Create a folder
     cdate = datetime.datetime.now()
-    dir_name = "HX_Report_" + str(cdate.strftime("%d_%m_%Y_%H_%M"))
+    dir_name = "HX_Report_" + str(cdate.strftime("%d_%m_%Y_%H_%M_%S"))
     try:
         os.makedirs(dir_name)
     except FileExistsError:
@@ -52,7 +52,7 @@ def log_start(log_file, log_name, lvl):
     handler.setLevel(log_level)
     
     # Create a logging format
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', '%m-%d-%Y %I:%M:%S %p')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', '%m-%d-%Y %I:%M:%S')
     handler.setFormatter(formatter)
     
     # Add the handlers to the logger
@@ -155,7 +155,7 @@ def thread_geteth0ip(ip, hxusername, hxpassword, time_out):
     try:
         # Initiate SSH Connection
         client.connect(hostname=ip, username=hxusername, password=hxpassword, timeout=time_out)
-        msg = "\r\nSSH connection established to HX Cluster: " + ip + "\r"
+        msg = "\r\nSSH connection established to HX Node: " + ip + "\r"
         log_msg(INFO, msg)
         #log_msg("", msg)
         #cmd = "hostname -i"
@@ -164,17 +164,17 @@ def thread_geteth0ip(ip, hxusername, hxpassword, time_out):
         hxips.extend(hxip)
         client.close()
     except Exception as e:
-        msg = "\r\nNot able to establish SSH connection to HX Cluster: " + ip + "\r"
+        msg = "\r\nNot able to establish SSH connection to HX Node: " + ip + "\r"
         log_msg(INFO, msg)
         log_msg("", msg)
         log_msg(ERROR, str(e) + "\r")
 
 def thread_sshconnect(ip, hxusername, hxpassword, time_out):
-    hostd[str(ip)] = dict.fromkeys(["hostname", "date", "ntp source", "eth1", "esxip" "vmk0", "vmk1"], "")
+    hostd[str(ip)] = dict.fromkeys(["hostname", "date", "ntp source", "package & versions", "check package & versions", "eth1", "esxip" "vmk0", "vmk1", "iptables count", "check iptables"], "")
     try:
         # Initiate SSH Connection
         client.connect(hostname=ip, username=hxusername, password=hxpassword, timeout=time_out)
-        msg = "\r\nSSH connection established to HX Cluster: " + ip + "\r"
+        msg = "\r\nSSH connection established to HX Node: " + ip + "\r"
         log_msg(INFO, msg)
         log_msg("", msg)
         # Check hostname
@@ -196,6 +196,13 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
             cmd = "stcli services ntp show"
             hntp = execmd(cmd)
             hostd[ip]["ntp source"] = ("".join(hntp)).encode("ascii", "ignore")
+        except Exception as e:
+            log_msg(ERROR, str(e) + "\r")
+        # check package and versions
+        try:
+            cmd = "dpkg -l | grep -i springpath | cut -d' ' -f3,4-30"
+            pkgl = execmd(cmd)
+            hostd[ip]["package & versions"] = pkgl
         except Exception as e:
             log_msg(ERROR, str(e) + "\r")
         # Get eth1 IP Address
@@ -228,8 +235,15 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
             """
         except Exception as e:
             log_msg(ERROR, str(e) + "\r")
+        # check Iptables count
+        try:
+            cmd = "iptables -L -n | wc -l"
+            ipt = execmd(cmd)
+            hostd[ip]["iptables count"] = ("".join(ipt)).encode("ascii", "ignore")
+        except Exception as e:
+            log_msg(ERROR, str(e) + "\r")
     except Exception as e:
-        msg = "\r\nNot able to establish SSH connection to HX Cluster: " + ip + "\r"
+        msg = "\r\nNot able to establish SSH connection to HX Node: " + ip + "\r"
         log_msg(INFO, msg)
         log_msg("", msg)
         log_msg(ERROR, str(e) + "\r")
@@ -603,6 +617,15 @@ def pre_upgrade_check(ip):
     # 1) Check HX Cluster version
     cmd = "stcli cluster version"
     hxvs = execmd(cmd)
+    vflag = False
+    for line in hxvs:
+        if "Cluster version" in line:
+            l = line.split(": ")
+            if len(l) == 2:
+                version = l[1]
+                hostd[ip]["version"] = version.strip()
+                if l[1].startswith("1.8"):
+                    vflag = True
     # 2) NTP deamon running check
     ntp_deamon_check = "FAIL"
     cmd = "ps aux | grep ntp"
@@ -691,23 +714,33 @@ def pre_upgrade_check(ip):
         testsum[ip].update({"NTP sync check": "PASS"})
     else:
         testsum[ip].update({"NTP sync check": "FAIL"})
+    testsum[ip].update({"Check package & versions": str(hostd[ip]["check package & versions"])})
+    testsum[ip].update({"Check Iptables count": str(hostd[ip]["check iptables"])})
     # 5) Check cluster usage
     cmd = "stcli cluster storage-summary | grep -i nodeFailuresTolerable"
     op = execmd(cmd)
     op = "".join(op)
     op = op.strip()
-    NFT = op.split(":")[1]
+    if ":" in op:
+        NFT = op.split(":")[1]
+    else:
+        NFT = "NA"
     cmd = "stcli cluster storage-summary | grep -i cachingDeviceFailuresTolerable"
     op = execmd(cmd)
     op = "".join(op)
     op = op.strip()
-    HFT = op.split(":")[1]
+    if ":" in op:
+        HFT = op.split(":")[1]
+    else:
+        HFT = "NA"
     cmd = "stcli cluster storage-summary | grep -i persistentDeviceFailuresTolerable"
     op = execmd(cmd)
     op = "".join(op)
     op = op.strip()
-    SFT = op.split(":")[1]
-
+    if ":" in op:
+        SFT = op.split(":")[1]
+    else:
+        SFT = "NA"
     # 6) Check cache is spread across all controller
     cmd = "nfstool -- -m | sort -u -k2"
     cachl = []
@@ -727,7 +760,8 @@ def pre_upgrade_check(ip):
             upst = "FAIL"
             break
     # Update Test summary
-    testsum[ip].update({"Cluster upgrade status": upst})
+    if vflag == False:
+        testsum[ip].update({"Cluster upgrade status": upst})
     # 8) Check any extra number of pnodes
     cmd = "stcli cluster info | grep -i  pnode -n2 | grep -i name | wc -l"
     op = execmd(cmd)
@@ -757,11 +791,13 @@ def pre_upgrade_check(ip):
                 dskst = "Bad"
                 testsum[ip].update({"Disk usage(/var/stv) check": "FAIL"})
     # 10) check packages and versions
+    """
     cmd = "dpkg -l | grep -i spring"
     op = execmd(cmd)
     check_package_version = []
     for line in op:
         check_package_version.append(line.replace(" " * 26, "    "))
+    """
     # check memory
     #cmd = "free -m"
     cmd = "free -m | grep Mem:"
@@ -832,13 +868,16 @@ def pre_upgrade_check(ip):
     # Cache usage
     testdetail[ip]["Pre-Upgrade check"]["Cache vNodes"] = str("\n".join(cachl))
     # Cluster Upgrade
-    testdetail[ip]["Pre-Upgrade check"]["Cluster Upgrade Status"] = upst
+    if vflag == False:
+        testdetail[ip]["Pre-Upgrade check"]["Cluster Upgrade Status"] = upst
     # No extra pnodes
     testdetail[ip]["Pre-Upgrade check"]["No extra pnodes"] = nodecheck
     # Disk usage(/var/stv)
     testdetail[ip]["Pre-Upgrade check"]["Disk usage(/var/stv)"] = {"Status": str(dskusg) + "%", "Result": dskst}
     # Check package & versions
-    testdetail[ip]["Pre-Upgrade check"]["Check package & versions"] = str("\n".join(check_package_version))
+    testdetail[ip]["Pre-Upgrade check"]["Check package & versions"] = {"Status": str("\n".join(hostd[ip]["package & versions"])), "Result": str(hostd[ip]["check package & versions"])}
+    # Check Iptables count
+    testdetail[ip]["Pre-Upgrade check"]["Check Iptables count"] = {"Status": str(hostd[ip]["iptables count"]), "Result": str(hostd[ip]["check iptables"])}
     # Check memory
     testdetail[ip]["Pre-Upgrade check"]["Check Memory usage"] = str(check_memory)
     # Check CPU
@@ -881,7 +920,7 @@ def network_check(ip):
                 op = execmd(cmd)
                 hxac = "FAIL"
                 for line in op:
-                    if "hxuser" in line:
+                    if "hxuser" in line or "springpath" in line:
                         hxac = "PASS"
                 opd.update({"HX User Account Created": hxac})
             except Exception:
@@ -906,15 +945,38 @@ def network_check(ip):
             except Exception:
                 pass
             # ESX vib list
+            vibl = []
             try:
                 cmd = "esxcli software vib list| grep -i spring"
                 op = execmd(cmd)
-                nop = []
                 for line in op:
-                    nop.append(line.replace(" "*26, "    "))
-                opd.update({"ESX Vib List": nop})
+                    vibl.append(line.replace(" "*26, "    "))
+                opd.update({"ESX Vib List": vibl})
             except Exception:
                 pass
+            # check SCVM and STFSNasPlugin version
+            chknasplg = ""
+            chkscvm = ""
+            nasplugin = {"1.8": "1.0.1-21", "2.1": "1.0.1-21", "2.5": "1.0.1-21", "3.0": "1.0.1-22",
+                         "3.5": "1.0.1-22", "4.0": "1.0.1-22"}
+            hxv = (hostd[ip]["version"])[:3]
+            if float(hxv) <= 3.5 and vibl:
+                for vl in vibl:
+                    if "scvmclient" in vl:
+                        l = vl.split()
+                        if hostd[ip]["version"] == l[1]:
+                            chkscvm = "PASS"
+                        else:
+                            chkscvm = "FAIL"
+                    elif "STFSNasPlugin" in vl:
+                        l = vl.split()
+                        if hxv in nasplugin.keys():
+                            if nasplugin[hxv] == l[1]:
+                                chknasplg = "PASS"
+                            else:
+                                chknasplg = "FAIL"
+                opd.update({"Check SCVM plugin version": chkscvm})
+                opd.update({"Check STFSNas plugin version": chknasplg})
             # ESX Services
             try:
                 cmd = "chkconfig --list | grep -E 'ntpd|hostd|vpxa|stHypervisorSvc|scvmclient|hxctlvm'"
@@ -952,7 +1014,7 @@ def network_check(ip):
             if len(vmk1_list) > 0 :
                 for k in vmk1_list:
                     try:
-                        cmd = "vmkping -I {} -c 3 -d -s 8972 -i 0.01 {}'".format("vmk1", k)
+                        cmd = "vmkping -I {} -c 3 -d -s 8972 -i 0.01 {}".format("vmk1", k)
                         op = execmd(cmd)
                         pst = pingstatus(op)
                         cm = "vmkping -I {} -c 3 -d -s 8972 -i 0.01 {}".format("vmk1", k)
@@ -1015,6 +1077,23 @@ def network_check(ip):
                 opd.update({"No extra controller vm folders": vmfld})
             except Exception:
                 pass
+            # Check the dump in springpathDS for HX < 2.5
+            chkdump = ""
+            if float(hxv) <= 2.5:
+                try:
+                    cmd = "ls /vmfs/volumes/Spri*/vmkdump"
+                    op = execmd(cmd)
+                    if "Not able to run the command" in op:
+                        chkdump = "PASS"
+                    elif "dumpfile" in op:
+                        chkdump = "FAIL"
+                    else:
+                        chkdump = "PASS"
+                    opd.update({"Check the dump in springpathDS": chkdump})
+                except Exception:
+                    pass
+
+            # Update Test Detail
             nwtestdetail.update({esxip: opd})
             # Close connection
             client.close()
@@ -1026,12 +1105,22 @@ def network_check(ip):
             nwtestsum[esxip]["vMotion enabled check"] = vmst
             # Check for HX down during upgrade
             #nwtestsum[esxip]["Check for HX down during upgrade"] = check_HX_down_status[:4]
-            nwtestsum[esxip]["Check for ESXI Failback timer"] = {"Status": check_HX_down_status, "Result": "If Failed, Change the failback timer to 30secs" + "\nesxcli system settings advanced set -o /Net/TeamPolicyUpDelay --int-value 30000"}
-            # Check ping to vmk0, eth0, eth1
+            if check_HX_down_status == "FAIL":
+                nwtestsum[esxip]["Check for ESXI Failback timer"] = {"Status": check_HX_down_status, "Result": "If Failed, Change the failback timer to 30secs" + "\nesxcli system settings advanced set -o /Net/TeamPolicyUpDelay --int-value 30000"}
+            else:
+                nwtestsum[esxip]["Check for ESXI Failback timer"] = {"Status": check_HX_down_status, "Result": ""}
+                # Check ping to vmk0, eth0, eth1
             if "FAIL" in allpingchk:
                 nwtestsum[esxip]["Check ping to vmk0, eth0, eth1"] = "FAIL"
             else:
                 nwtestsum[esxip]["Check ping to vmk0, eth0, eth1"] = "PASS"
+            # Check the dump in springpathDS for HX < 2.5
+            if chkdump != "":
+                nwtestsum[esxip]["Check the dump in springpathDS"] = chkdump
+            if chkscvm != "":
+                nwtestsum[esxip]["Check SCVM plugin version"] = chkscvm
+            if chknasplg != "":
+                nwtestsum[esxip]["Check STFSNas plugin version"] = chknasplg
             # No extra controller vm folders check
             nwtestsum[esxip]["No extra controller vm folders check"] = vmfld[:4]
 
@@ -1217,15 +1306,29 @@ def create_main_report():
         fh.write("\r\nBugs Detail:" + "\r\n")
         fh.write((str(bgt)).replace("\n", "\r\n"))
         fh.write("\r\n")
+        fh.write("\r\nRelease Notes:" + "\r\n")
+        fh.write("https://www.cisco.com/c/en/us/support/hyperconverged-systems/hyperflex-hx-data-platform-software/products-release-notes-list.html" + "\r\n")
+        fh.write("\r\nUpgrade Guides:" + "\r\n")
+        fh.write("https://www.cisco.com/c/en/us/support/hyperconverged-systems/hyperflex-hx-data-platform-software/products-installation-guides-list.html" + "\r\n")
+        fh.write("\r\n")
+        fh.write("\r\nNote:" + "\r\n")
+        fh.write("Please check the status of Compute nodes manually, script only verifies the config on the converged nodes." + "\r\n")
+        fh.write("\r\n")
     print("\r\nMain Report File: " + filename)
-
+    print("\r\nRelease Notes:")
+    print("\rhttps://www.cisco.com/c/en/us/support/hyperconverged-systems/hyperflex-hx-data-platform-software/products-release-notes-list.html")
+    print("\r\nUpgrade Guides:")
+    print("\rhttps://www.cisco.com/c/en/us/support/hyperconverged-systems/hyperflex-hx-data-platform-software/products-installation-guides-list.html")
+    print("\r\nNote:")
+    print("\rPlease check the status of Compute nodes manually, script only verifies the config on the converged nodes.")
+    print("\r\n")
 ##############################################################################
 #   Main 
 ##############################################################################    
 if __name__ == "__main__":
     # HX Script version
     global ver
-    ver = 2.0
+    ver = 3.0
     # Arguments passed
     global arg
     arg = ""
@@ -1236,7 +1339,7 @@ if __name__ == "__main__":
             pass
     if arg == "-h" or arg == "--help" or arg == "help":
         print("\n\t\t HX Health Check " + str(ver))
-        print("\nSupported HX Versions: 2.6, 3.0, 3.5, 4.0")
+        print("\nSupported HX Versions: 1.8, 2.6, 3.0, 3.5, 4.0")
         print("\nPre-requisite: Script needs HX and ESXi root password information to check all conditions.")
         print("\nHX Health Check script will do below checks on each cluster nodes:")
         print("\t 1) Cluster services check")
@@ -1295,7 +1398,7 @@ if __name__ == "__main__":
     if op:
         ips = re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", op)
     if not ips:
-        print("HX Cluster IP Addresses are not found")
+        print("HX Nodes IP Addresses are not found")
         sys_exit(0)
     ips.sort(key=lambda ip: map(int, reversed(ip.split('.'))))
     log_msg(INFO, "IP Adresses: " + ", ".join(ips) + "\r")
@@ -1329,7 +1432,7 @@ if __name__ == "__main__":
         for ip in ips:
             th = threading.Thread(target=thread_geteth0ip, args=(ip, hxusername, hxpassword, time_out,))
             th.start()
-            time.sleep(5)
+            time.sleep(10)
             ipthreads.append(th)
 
         for t in ipthreads:
@@ -1353,7 +1456,7 @@ if __name__ == "__main__":
     for ip in hxips:
         th = threading.Thread(target=thread_sshconnect, args=(ip, hxusername, hxpassword, time_out,))
         th.start()
-        time.sleep(20)
+        time.sleep(30)
         threads.append(th)
 
     for t in threads:
@@ -1425,6 +1528,85 @@ if __name__ == "__main__":
                     break
         hostd[ip].update({"ntp source check": ntpsrccheck})
 
+    # Check package & versions on each controller
+    packagecheck = ""
+    # First will count no of packages on each controller
+    for ip in hostd.keys():
+        ipkgl = hostd[ip]["package & versions"]
+        if ipkgl:
+            cnt = len(ipkgl)
+            for jp in hostd.keys():
+                if ip == jp:
+                    continue
+                elif cnt == len(hostd[jp]["package & versions"]):
+                    packagecheck = "PASS"
+                else:
+                    packagecheck = "FAIL"
+                    break
+            break
+        else:
+            packagecheck = "FAIL"
+            break
+    # Now will check package and version on each controller
+    if packagecheck == "PASS":
+        for ip in hostd.keys():
+            ipkgl = hostd[ip]["package & versions"]
+            for pk in ipkgl:
+                l = pk.split()
+                pkg = l[0]
+                ver = l[1]
+                for jp in hostd.keys():
+                    if ip == jp:
+                        continue
+                    elif packagecheck == "FAIL":
+                        break
+                    else:
+                        jpkgl = hostd[jp]["package & versions"]
+                        for line in jpkgl:
+                            if pkg in line:
+                                if ver in line:
+                                    packagecheck = "PASS"
+                                else:
+                                    packagecheck = "FAIL"
+                                    break
+                if packagecheck == "FAIL":
+                    break
+            if packagecheck == "FAIL":
+                break
+    for ip in hostd.keys():
+        hostd[ip]["check package & versions"] = packagecheck
+    # check Iptables count
+    # check for at least 44 and same across all nodes
+    iptst = ""
+    for ip in hostd.keys():
+        try:
+            ipcnt = int(hostd[ip]["iptables count"])
+        except Exception:
+            continue
+        if ipcnt < 44:
+            iptst = "FAIL"
+            break
+        elif iptst == "FAIL":
+            break
+        else:
+            for jp in hostd.keys():
+                try:
+                    jpcnt = int(hostd[jp]["iptables count"])
+                except Exception:
+                    continue
+                if jpcnt < 44:
+                    iptst = "FAIL"
+                    break
+                elif ip == jp:
+                    continue
+                elif ipcnt == jpcnt:
+                    iptst = "PASS"
+                else:
+                    iptst = "FAIL"
+                    break
+    for ip in hostd.keys():
+        hostd[ip]["check iptables"] = iptst
+
     # Get ESX IPs, vmk1 ips
     global esx_hostsl
     esx_hostsl = []
@@ -1494,7 +1676,7 @@ if __name__ == "__main__":
             print("\r\nHX Controller: " + str(ip))
             # Initiate SSH Connection
             client.connect(hostname=ip, username=hxusername, password=hxpassword, timeout=time_out)
-            msg = "\r\nSSH connection established to HX Cluster: " + ip + "\r"
+            msg = "\r\nSSH connection established to HX Node: " + ip + "\r"
             log_msg(INFO, msg)
             # log_msg("", msg)
             testsum[ip] = OrderedDict()
@@ -1558,7 +1740,7 @@ if __name__ == "__main__":
             create_sub_report(ip)
 
         except Exception as e:
-            msg = "\r\nNot able to establish SSH connection to HX Cluster: " + ip + "\r"
+            msg = "\r\nNot able to establish SSH connection to HX Node: " + ip + "\r"
             log_msg(INFO, msg)
             #log_msg("", msg)
             log_msg(ERROR, str(e) + "\r")
