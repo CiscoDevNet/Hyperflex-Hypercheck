@@ -4,6 +4,8 @@ Introduction
 • It also helps perform automated pre-upgrade checks to have a better upgrade experience.
 • The tool automates a list of checks on Hyperflex System saving time during Maintenance activity and Upgrade processes.
 
+NOTE: Always download latest version of the tool before you use it. Since the tool is enhanced frequently, using older version may result in missing important checks.
+
 Supported HX Versions
     1.8
     2.0
