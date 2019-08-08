@@ -16,7 +16,7 @@ Supported HX Versions
 
 Supported HX Clusters
     Hyperflex Standard Cluster
-    Hyperflex Edge Cluster (3Node and 4Node)
+    Hyperflex Edge Cluster (2Node, 3Node and 4Node)
     Only supported on Hyperflex cluster on VMWare ESXi
 
 When to use?
