@@ -195,12 +195,13 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
         try:
             cmd = "stcli services ntp show"
             hntp = execmd(cmd)
+            hntp = [i for i in hntp if "-" not in i]
             hostd[ip]["ntp source"] = ("".join(hntp)).encode("ascii", "ignore")
         except Exception as e:
             log_msg(ERROR, str(e) + "\r")
         # check package and versions
         try:
-            cmd = "dpkg -l | grep -i springpath | cut -d' ' -f3,4-30"
+            cmd = "dpkg -l | grep -i springpath | cut -d' ' -f3,4-40"
             pkgl = execmd(cmd)
             hostd[ip]["package & versions"] = pkgl
         except Exception as e:
@@ -259,6 +260,24 @@ def get_vmk1(ip, hxusername, esxpassword, time_out):
             msg = "\r\nSSH connection established to ESX Host: " + esxip + "\r"
             log_msg(INFO, msg)
             log_msg("", msg)
+            # Check vMotion Enabled
+            try:
+                cmd = "vim-cmd hostsvc/vmotion/netconfig_get | grep -i selectedVnic"
+                op = execmd(cmd)
+                vmst = "FAIL"
+                vmkip = ""
+                for line in op:
+                    if "unset" in line:
+                        vmst = "FAIL"
+                    elif "VMotionConfig" in line:
+                        vmst = "PASS"
+                        v = re.search(r"vmk\d", line)
+                        if v:
+                            vmkip = v.group()
+                esx_vmotion[esxip]["vmotion"] = vmst
+
+            except Exception as e:
+                log_msg(ERROR, str(e) + "\r")
             # Get vmk0 and vmk1 IP Address
             try:
                 cmd = "esxcfg-vmknic -l"
@@ -272,7 +291,17 @@ def get_vmk1(ip, hxusername, esxpassword, time_out):
                         m = re.search(r"([\d]{1,3}(.[\d]{1,3}){3})", line)
                         if m:
                             hostd[ip]["vmk1"] = str(m.group(1))
-                        break
+                    # checking vmotion ip address
+                    if vmkip != "":
+                        if vmkip in line and "IPv4" in line:
+                            m = re.search(r"([\d]{1,3}(.[\d]{1,3}){3})", line)
+                            if m:
+                                hostd[ip]["vmk1"] = str(m.group(1))
+                                esx_vmotion[esxip]["vmkip"] = str(m.group(1))
+                                if " 1500 " in line:
+                                    esx_vmotion[esxip]["mtu"] = "1472"
+                                elif " 9000 " in line:
+                                    esx_vmotion[esxip]["mtu"] = "8972"
             except Exception as e:
                 log_msg(ERROR, str(e) + "\r")
         except Exception as e:
@@ -656,7 +685,7 @@ def pre_upgrade_check(ip):
             ntp_sync_line = l[0]
             if line.startswith("*"):
                 ntp_sync_check = "PASS"
-            break
+                break
 
     # 3) DNS check
     cmd = "stcli services dns show"
@@ -694,6 +723,7 @@ def pre_upgrade_check(ip):
                 l = line.split(":")
                 if len(l) == 2:
                     dnip = l[1]
+                    dnip = dnip.replace("https://", "")
                     vcenterip = dnip.strip()
                     msg = "\r\nvCenter IP Address: " + str(vcenterip) + "\r"
                     log_msg(INFO, msg)
@@ -926,17 +956,25 @@ def network_check(ip):
             except Exception:
                 pass
             # Check vMotion Enabled
-            try:
-                cmd = "esxcli network firewall ruleset list | grep -i vMotion"
-                op = execmd(cmd)
-                vmst = "FAIL"
-                for line in op:
-                    if "vMotion" in line and "true" in line:
-                        vmst = "PASS"
-                        break
-                opd.update({"vMotion Enabled": vmst})
-            except Exception:
-                pass
+            vmst = esx_vmotion[esxip]["vmotion"]
+            opd.update({"vMotion Enabled": vmst})
+            # Check vMotion reachability check
+            allvmkpingchk = []
+            if vmst == "PASS":
+                for vip in esx_vmotion.keys():
+                    mtu = esx_vmotion[str(vip)]["mtu"]
+                    vmkip = esx_vmotion[str(vip)]["vmkip"]
+                    if vip == esxip:
+                        continue
+                    elif vmkip != "":
+                        try:
+                            cmd = "vmkping -I {} -c 3 -d -s {} -i 0.01 {}".format("vmk0", mtu, vmkip)
+                            op = execmd(cmd)
+                            pst = pingstatus(op)
+                            opd.update({cmd: pst})
+                            allvmkpingchk.append(pst)
+                        except Exception:
+                            pass
             # Check ESXi Version
             try:
                 cmd = "vmware -l"
@@ -957,8 +995,8 @@ def network_check(ip):
             # check SCVM and STFSNasPlugin version
             chknasplg = ""
             chkscvm = ""
-            nasplugin = {"1.8": "1.0.1-21", "2.1": "1.0.1-21", "2.5": "1.0.1-21", "3.0": "1.0.1-22",
-                         "3.5": "1.0.1-22", "4.0": "1.0.1-22"}
+            nasplugin = {"1.8": "1.0.1-21", "2.1": "1.0.1-21", "2.5": "1.0.1-21", "2.6": "1.0.1-21",
+                         "3.0": "1.0.1-22", "3.5": "1.0.1-22", "4.0": "1.0.1-22"}
             hxv = (hostd[ip]["version"])[:3]
             if float(hxv) <= 3.5 and vibl:
                 for vl in vibl:
@@ -1079,19 +1117,19 @@ def network_check(ip):
                 pass
             # Check the dump in springpathDS for HX < 2.5
             chkdump = ""
-            if float(hxv) <= 2.5:
-                try:
-                    cmd = "ls /vmfs/volumes/Spri*/vmkdump"
-                    op = execmd(cmd)
-                    if "Not able to run the command" in op:
-                        chkdump = "PASS"
-                    elif "dumpfile" in op:
-                        chkdump = "FAIL"
-                    else:
-                        chkdump = "PASS"
-                    opd.update({"Check the dump in springpathDS": chkdump})
-                except Exception:
-                    pass
+            # check for all HX versions
+            try:
+                cmd = "ls /vmfs/volumes/Spri*/vmkdump"
+                op = execmd(cmd)
+                if "Not able to run the command" in op:
+                    chkdump = "PASS"
+                elif "dumpfile" in op:
+                    chkdump = "FAIL"
+                else:
+                    chkdump = "PASS"
+                opd.update({"Check the dump in springpathDS": chkdump})
+            except Exception:
+                pass
 
             # Update Test Detail
             nwtestdetail.update({esxip: opd})
@@ -1102,7 +1140,14 @@ def network_check(ip):
             # HX User Account check
             nwtestsum[esxip]["HX User Account check"] = hxac
             # vMotion enabled check
-            nwtestsum[esxip]["vMotion enabled check"] = vmst
+            nwtestsum[esxip]["vMotion enabled check"] = esx_vmotion[esxip]["vmotion"]
+            # vMotion reachability check
+            if esx_vmotion[esxip]["vmotion"] == "PASS":
+                if allvmkpingchk:
+                    if "FAIL" in allvmkpingchk:
+                        nwtestsum[esxip]["vMotion reachability check"] = "FAIL"
+                    else:
+                        nwtestsum[esxip]["vMotion reachability check"] = "PASS"
             # Check for HX down during upgrade
             #nwtestsum[esxip]["Check for HX down during upgrade"] = check_HX_down_status[:4]
             if check_HX_down_status == "FAIL":
@@ -1110,10 +1155,11 @@ def network_check(ip):
             else:
                 nwtestsum[esxip]["Check for ESXI Failback timer"] = {"Status": check_HX_down_status, "Result": ""}
                 # Check ping to vmk0, eth0, eth1
-            if "FAIL" in allpingchk:
-                nwtestsum[esxip]["Check ping to vmk0, eth0, eth1"] = "FAIL"
-            else:
-                nwtestsum[esxip]["Check ping to vmk0, eth0, eth1"] = "PASS"
+            if allpingchk:
+                if "FAIL" in allpingchk:
+                    nwtestsum[esxip]["Check ping to vmk0, eth0, eth1"] = "FAIL"
+                else:
+                    nwtestsum[esxip]["Check ping to vmk0, eth0, eth1"] = "PASS"
             # Check the dump in springpathDS for HX < 2.5
             if chkdump != "":
                 nwtestsum[esxip]["Check the dump in springpathDS"] = chkdump
@@ -1328,7 +1374,7 @@ def create_main_report():
 if __name__ == "__main__":
     # HX Script version
     global ver
-    ver = 3.0
+    ver = 3.1
     # Arguments passed
     global arg
     arg = ""
@@ -1432,7 +1478,7 @@ if __name__ == "__main__":
         for ip in ips:
             th = threading.Thread(target=thread_geteth0ip, args=(ip, hxusername, hxpassword, time_out,))
             th.start()
-            time.sleep(10)
+            time.sleep(12)
             ipthreads.append(th)
 
         for t in ipthreads:
@@ -1552,9 +1598,14 @@ if __name__ == "__main__":
         for ip in hostd.keys():
             ipkgl = hostd[ip]["package & versions"]
             for pk in ipkgl:
+                pkg = ""
+                ver = ""
                 l = pk.split()
-                pkg = l[0]
-                ver = l[1]
+                try:
+                    pkg = l[0]
+                    ver = l[1]
+                except Exception:
+                    pass
                 for jp in hostd.keys():
                     if ip == jp:
                         continue
@@ -1614,7 +1665,15 @@ if __name__ == "__main__":
         esxip = hostd[ip].get("esxip", "")
         if esxip != "":
             esx_hostsl.append(esxip)
-
+    if esx_hostsl:
+        try:
+            esx_hostsl.sort(key=lambda ip: map(int, reversed(ip.split('.'))))
+        except Exception:
+            pass
+    global esx_vmotion
+    esx_vmotion = {}
+    for ip in esx_hostsl:
+        esx_vmotion[str(ip)] = dict.fromkeys(["vmotion", "vmkip", "mtu"], "")
     global vmk1_list
     vmk1_list = []
     # Get all vmk1 using threads
@@ -1628,15 +1687,11 @@ if __name__ == "__main__":
     for t in threads:
         t.join()
 
+    #print(esx_vmotion)
     for ip in hostd.keys():
         vmk1 = hostd[ip]["vmk1"]
         vmk1_list.append(vmk1)
 
-    if esx_hostsl:
-        try:
-            esx_hostsl.sort(key=lambda ip: map(int, reversed(ip.split('.'))))
-        except Exception:
-            pass
     if vmk1_list:
         try:
             vmk1_list.sort(key=lambda ip: map(int, reversed(ip.split('.'))))
