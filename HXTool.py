@@ -2,7 +2,7 @@
 """
 Created on Fri Mar  9 13:22:07 2018
 Updated on Thu Jul 25
-@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash (avshukla)
+@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
 """
 import warnings
 warnings.filterwarnings(action='ignore',module='.*paramiko.*')
@@ -17,10 +17,12 @@ import os
 import shutil
 import getpass
 import re
+import tarfile
 from prettytable import PrettyTable, ALL
 from collections import OrderedDict
 from progressbar import ProgressBarThread
 from multiprocessing import Process
+
 
 
 ########################       Logger        #################################
@@ -34,6 +36,7 @@ def get_date_time():
 def log_start(log_file, log_name, lvl):
     # Create a folder
     cdate = datetime.datetime.now()
+    global dir_name
     dir_name = "HX_Report_" + str(cdate.strftime("%d_%m_%Y_%H_%M_%S"))
     try:
         os.makedirs(dir_name)
@@ -201,8 +204,11 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
             log_msg(ERROR, str(e) + "\r")
         # check package and versions
         try:
-            cmd = "dpkg -l | grep -i springpath | cut -d' ' -f3,4-40"
-            pkgl = execmd(cmd)
+            cmd = "dpkg -l | grep -i springpath | cut -d' ' -f3,4-"
+            op = execmd(cmd)
+            pkgl = []
+            for s in op:
+                pkgl.append(s[:65])
             hostd[ip]["package & versions"] = pkgl
         except Exception as e:
             log_msg(ERROR, str(e) + "\r")
@@ -993,6 +999,7 @@ def network_check(ip):
             except Exception:
                 pass
             # check SCVM and STFSNasPlugin version
+            # scvmclient version should match the hx cluster version.
             chknasplg = ""
             chkscvm = ""
             nasplugin = {"1.8": "1.0.1-21", "2.1": "1.0.1-21", "2.5": "1.0.1-21", "2.6": "1.0.1-21",
@@ -1008,7 +1015,13 @@ def network_check(ip):
                             chkscvm = "FAIL"
                     elif "STFSNasPlugin" in vl:
                         l = vl.split()
-                        if hxv in nasplugin.keys():
+                        m = re.search(r"^3\.0\.1[a-i]", hostd[ip]["version"])
+                        if m:
+                            if l[1] == "1.0.1-21":
+                                chknasplg = "PASS"
+                            else:
+                                chknasplg = "FAIL"
+                        elif hxv in nasplugin.keys():
                             if nasplugin[hxv] == l[1]:
                                 chknasplg = "PASS"
                             else:
@@ -1349,9 +1362,6 @@ def create_main_report():
             fh.write((str(t4)).replace("\n", "\r\n"))
             fh.write("\r\n")
         fh.write("\r\n")
-        fh.write("\r\nBugs Detail:" + "\r\n")
-        fh.write((str(bgt)).replace("\n", "\r\n"))
-        fh.write("\r\n")
         fh.write("\r\nRelease Notes:" + "\r\n")
         fh.write("https://www.cisco.com/c/en/us/support/hyperconverged-systems/hyperflex-hx-data-platform-software/products-release-notes-list.html" + "\r\n")
         fh.write("\r\nUpgrade Guides:" + "\r\n")
@@ -1361,6 +1371,7 @@ def create_main_report():
         fh.write("Please check the status of Compute nodes manually, script only verifies the config on the converged nodes." + "\r\n")
         fh.write("\r\n")
     print("\r\nMain Report File: " + filename)
+    create_tar_file()
     print("\r\nRelease Notes:")
     print("\rhttps://www.cisco.com/c/en/us/support/hyperconverged-systems/hyperflex-hx-data-platform-software/products-release-notes-list.html")
     print("\r\nUpgrade Guides:")
@@ -1368,13 +1379,28 @@ def create_main_report():
     print("\r\nNote:")
     print("\rPlease check the status of Compute nodes manually, script only verifies the config on the converged nodes.")
     print("\r\n")
+
+def create_tar_file():
+    file = dir_name + ".tar"
+    try:
+        os.chdir("..")
+        tar = tarfile.open(file, "w")
+        tar.add(dir_name)
+        tar.close()
+        print("Report tar file: " + str(file))
+        print("\r\n")
+    except Exception as e:
+        print("Not able to create the Report tar file")
+        print(e)
+
+
 ##############################################################################
 #   Main 
 ##############################################################################    
 if __name__ == "__main__":
     # HX Script version
     global ver
-    ver = 3.1
+    ver = 3.2
     # Arguments passed
     global arg
     arg = ""
@@ -1807,15 +1833,12 @@ if __name__ == "__main__":
 
     ###############################################################
 
-
-
-
-
     # Display the test result
     display_result()
 
     # Print Report to file
     create_main_report()
+
     # End
     sys_exit(0)
 ###############################################################################
