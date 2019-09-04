@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar  9 13:22:07 2018
-Updated on Thu Jul 25
-@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
+Updated on Wed Sep 4 2019
+@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash (avshukla)
 """
 import warnings
 warnings.filterwarnings(action='ignore',module='.*paramiko.*')
@@ -187,13 +187,6 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
             hostd[ip]["hostname"] = ("".join(hname)).encode("ascii", "ignore")
         except Exception as e:
             log_msg(ERROR, str(e) + "\r")
-        # Check date
-        try:
-            cmd = 'date "+%D %T"'
-            hdate = execmd(cmd)
-            hostd[ip]["date"] = ("".join(hdate)).encode("ascii", "ignore")
-        except Exception as e:
-            log_msg(ERROR, str(e) + "\r")
         # Check NTP source
         try:
             cmd = "stcli services ntp show"
@@ -228,18 +221,7 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
             if op:
                 esxip = op[0]
                 hostd[ip]["esxip"] = str(esxip)
-            """
-            for line in op:
-                if "vmk0" in line and "IPv4" in line:
-                    m = re.search(r"([\d]{1,3}(.[\d]{1,3}){3})", line)
-                    if m:
-                        hostd[ip]["vmk0"] = str(m.group(1))
-                elif "vmk1" in line and "IPv4" in line:
-                    m = re.search(r"([\d]{1,3}(.[\d]{1,3}){3})", line)
-                    if m:
-                        hostd[ip]["vmk1"] = str(m.group(1))
-                    break
-            """
+
         except Exception as e:
             log_msg(ERROR, str(e) + "\r")
         # check Iptables count
@@ -253,6 +235,28 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
         msg = "\r\nNot able to establish SSH connection to HX Node: " + ip + "\r"
         log_msg(INFO, msg)
         log_msg("", msg)
+        log_msg(ERROR, str(e) + "\r")
+    finally:
+        client.close()
+
+def thread_timestamp(ip, hxusername, hxpassword, time_out):
+    try:
+        # Initiate SSH Connection
+        client.connect(hostname=ip, username=hxusername, password=hxpassword, timeout=time_out)
+        msg = "\r\nSSH connection established to HX Node: " + ip + "\r"
+        log_msg(INFO, msg)
+        #log_msg("", msg)
+        # Check date
+        try:
+            cmd = 'date "+%D %T"'
+            hdate = execmd(cmd)
+            hostd[ip]["date"] = ("".join(hdate)).encode("ascii", "ignore")
+        except Exception as e:
+            log_msg(ERROR, str(e) + "\r")
+    except Exception as e:
+        msg = "\r\nNot able to establish SSH connection to HX Node: " + ip + "\r"
+        log_msg(INFO, msg)
+        #log_msg("", msg)
         log_msg(ERROR, str(e) + "\r")
     finally:
         client.close()
@@ -803,6 +807,12 @@ def pre_upgrade_check(ip):
     op = execmd(cmd)
     op = "".join(op)
     pnodes = int(op)
+    check_cache_vnodes = ""
+    if cachl:
+        if pnodes == len(cachl):
+            check_cache_vnodes = "PASS"
+        else:
+            check_cache_vnodes = "FAIL"
     #cmd = "stcli cluster info | grep -i  stctl_mgmt -n1 | grep -i addr | wc -l"
     #op = execmd(cmd)
     #op = "".join(op)
@@ -842,7 +852,7 @@ def pre_upgrade_check(ip):
     if op:
         for line in op:
             l = line.split()
-            frmem = l[3]
+            frmem = int(l[3]) - int(l[4]) - int(l[5])
             if int(frmem) >= 2048:
                 check_memory = "PASS"
             else:
@@ -902,7 +912,7 @@ def pre_upgrade_check(ip):
     # Cluster usage
     testdetail[ip]["Pre-Upgrade check"]["Cluster Fault Tolerance"] = "Node Failures Tolerable:" + str(NFT) + "\nHDD Failures Tolerable:" + str(HFT) + "\nSSD Failures Tolerable:" + str(SFT)
     # Cache usage
-    testdetail[ip]["Pre-Upgrade check"]["Cache vNodes"] = str("\n".join(cachl))
+    testdetail[ip]["Pre-Upgrade check"]["Cache vNodes"] = {"Status": str("\n".join(cachl)), "Result": check_cache_vnodes}
     # Cluster Upgrade
     if vflag == False:
         testdetail[ip]["Pre-Upgrade check"]["Cluster Upgrade Status"] = upst
@@ -1523,7 +1533,7 @@ if __name__ == "__main__":
     # Automatically add untrusted hosts (Handle SSH Exception for unknown host)
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    # Get all timestamp using threads
+    # Get hostname, eth1, esxip using threads
     threads = []
     for ip in hxips:
         th = threading.Thread(target=thread_sshconnect, args=(ip, hxusername, hxpassword, time_out,))
@@ -1534,6 +1544,20 @@ if __name__ == "__main__":
     for t in threads:
         t.join()
 
+    # Get all timestamp using threads
+    tsthreads = []
+    tsstart = datetime.datetime.now().replace(microsecond=0)
+    for ip in hxips:
+        th = threading.Thread(target=thread_timestamp, args=(ip, hxusername, hxpassword, time_out,))
+        th.start()
+        time.sleep(5)
+        tsthreads.append(th)
+
+    for t in tsthreads:
+        t.join()
+    tsend = datetime.datetime.now().replace(microsecond=0)
+    timedelay = (tsend - tsstart).seconds
+    log_msg(INFO, "Time delay for Timestamp check: " + str(timedelay) + "\r")
 
     global ht
     ht = PrettyTable(hrules=ALL)
@@ -1573,7 +1597,7 @@ if __name__ == "__main__":
                                 t = (ipdt - jpdt).seconds
                             else:
                                 t = (jpdt - ipdt).seconds
-                            if t > 120:
+                            if t > timedelay:
                                 dtresult = "FAIL"
                                 break
                             else:
