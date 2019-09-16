@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar  9 13:22:07 2018
-Updated on Wed Sep 4 2019
+Updated on Mon Sep 16 2019
 @author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash (avshukla)
 """
 import warnings
@@ -18,6 +18,7 @@ import shutil
 import getpass
 import re
 import tarfile
+import shutil
 from prettytable import PrettyTable, ALL
 from collections import OrderedDict
 from progressbar import ProgressBarThread
@@ -322,6 +323,17 @@ def get_vmk1(ip, hxusername, esxpassword, time_out):
         finally:
             client.close()
 
+def pingstatus(op):
+    pgst = "PASS"
+    for line in op:
+        if "Not able to run the command" in line or "Network is unreachable" in line:
+            pgst = "FAIL"
+        elif "0 packets received" in line or "100% packet loss" in line or " 0 received" in line:
+            pgst = "FAIL"
+        elif ", 0% packet loss" in line:
+            pgst = "PASS"
+    return pgst
+
 def cluster_services_check(ip):
     # 1) stcli cluster info
     cldict = {}
@@ -510,6 +522,7 @@ def cluster_services_check(ip):
     
 def zookeeper_check(ip):
     # ZooKeeper and Exhibitor check
+    # 1) Mode
     # echo srvr | nc localhost 2181
     cmd = "echo srvr | nc localhost 2181"
     zkl = execmd(cmd)
@@ -517,7 +530,8 @@ def zookeeper_check(ip):
     for line in zkl:
         if "Mode:" in line:
             mode = line.split(": ")[1]
-    
+
+    # 2) Services
     # pidof exhibitor
     cmd = "pidof exhibitor"
     exhl = execmd(cmd)
@@ -543,7 +557,7 @@ def zookeeper_check(ip):
         for line in op:
             exh_comm.append(line.strip())    
             
-    # ls /etc/exhibitor/exhibitor.properties
+    # 3) Check exhibitor.properties file exists
     cmd = "ls /etc/exhibitor/exhibitor.properties"
     op = execmd(cmd)
     prop_file = ""
@@ -552,13 +566,48 @@ def zookeeper_check(ip):
             prop_file = "Exists"
         else:
             prop_file = "Not Exists"
+
     # Epoch Issue
+    # 4) Accepted Epoch value
+    # 5) Current Epoch value
     cmd = 'grep -m1 "" /var/zookeeper/version-2/acceptedEpoch'
     op = execmd(cmd)
     accepoch = "".join(op)
     cmd = 'grep -m1 "" /var/zookeeper/version-2/currentEpoch'
     op = execmd(cmd)
     curepoch = "".join(op)
+
+    # 6) Disk usage
+    # Each should be less than 80%
+    cmd = "df -h | grep -i '/var/stv\|/var/zookeeper\|/sda1'"
+    diskop = execmd(cmd)
+    zdiskchk = "PASS"
+    zdisk = ""
+    for line in diskop:
+        if "Not able to run the command" in line:
+            zdiskchk = "NA"
+            break
+        elif "/sda1" in line:
+            m1 = re.search(r"(\d+)%", line)
+            if m1:
+                if int(m1.group(1)) > 80:
+                    zdiskchk = "FAIL"
+                    zdisk = "/sda1"
+                    break
+        elif "/var/stv" in line:
+            m2 = re.search(r"(\d+)%", line)
+            if m2:
+                if int(m2.group(1)) > 80:
+                    zdiskchk = "FAIL"
+                    zdisk = "/var/stv"
+                    break
+        elif "/var/zookeeper" in line:
+            m3 = re.search(r"(\d+)%", line)
+            if m3:
+                if int(m3.group(1)) > 80:
+                    zdiskchk = "FAIL"
+                    zdisk = "/var/zookeeper"
+                    break
 
     # Update Test Detail info
     testdetail[ip]["ZooKeeper and Exhibitor check"] = OrderedDict()
@@ -580,6 +629,8 @@ def zookeeper_check(ip):
     # Current Epoch value
     testdetail[ip]["ZooKeeper and Exhibitor check"]["Current Epoch value"] = curepoch
 
+    # Disk Usage
+    testdetail[ip]["ZooKeeper and Exhibitor check"]["ZooKeeper Disk Usage"] = {"Status": zdiskchk, "Result": zdisk}
 
     # Update Test summary
     zoo_chk = "FAIL"
@@ -590,6 +641,7 @@ def zookeeper_check(ip):
         exh_chk = "PASS"
     testsum[ip].update({"Zookeeper check": zoo_chk})
     testsum[ip].update({"Exhibitor check": exh_chk})
+    testsum[ip].update({"ZooKeeper Disk Usage": zdiskchk})
     
 def hdd_check(ip):
     # HDD health check
@@ -679,23 +731,20 @@ def pre_upgrade_check(ip):
             log_msg(INFO, msg)
             #print(match.group())
     # 3) NTP Sync Check
-    cmd = "ntpq -p -4"
+    cmd = "ntpq -p -4 | grep '^*'"
     ntpsl = execmd(cmd)
     ntp_sync_check = "FAIL"
     ntp_sync_line = ""
     flag1 = 0
     for line in ntpsl:
-        if "======" in line:
-            flag1 = 1
-            continue
-        if flag1 == 1:
-            msg = "\r\nNTP sync check: " + str(line) + "\r"
-            log_msg(INFO, msg)
+        if "Not able to run the command" in line:
+            ntp_sync_check = "FAIL"
+        elif line.startswith("*"):
             l = line.split()
             ntp_sync_line = l[0]
-            if line.startswith("*"):
-                ntp_sync_check = "PASS"
-                break
+            ntp_sync_check = "PASS"
+            break
+
 
     # 3) DNS check
     cmd = "stcli services dns show"
@@ -711,10 +760,8 @@ def pre_upgrade_check(ip):
     if dnsip:
         cmd = "ping {} -c 3 -i 0.01".format(dnsip)
         op = execmd(cmd)
-        for line in op:
-            if "0% packet loss" in line:
-                dns_check = "PASS"
-                break
+        dns_check = pingstatus(op)
+
     # Update Test summary
     testsum[ip].update({"DNS check": dns_check})
     # 4) vCenter Reachability check
@@ -743,10 +790,8 @@ def pre_upgrade_check(ip):
     if vcenterip:
         cmd = "ping {} -c 3 -i 0.01".format(vcenterip)
         op = execmd(cmd)
-        for line in op:
-            if "0% packet loss" in line:
-                vcenter_check = "PASS"
-                break
+        vcenter_check = pingstatus(op)
+
     # Update Test summary
     testsum[ip].update({"vCenter reachability check": vcenter_check})
     testsum[ip].update({"Timestamp check": str(hostd[ip]["date check"])})
@@ -792,11 +837,12 @@ def pre_upgrade_check(ip):
     #print(cachl)
 
     # 7) Cluster Upgrade status
+    # Fail, when not able to run
     cmd = "stcli cluster upgrade-status"
     upst = "PASS"
     op = execmd(cmd)
     for line in op:
-        if "exception" in line or "Not able to run the command" in line:
+        if "Not able to run the command" in line:
             upst = "FAIL"
             break
     # Update Test summary
@@ -836,14 +882,7 @@ def pre_upgrade_check(ip):
             else:
                 dskst = "Bad"
                 testsum[ip].update({"Disk usage(/var/stv) check": "FAIL"})
-    # 10) check packages and versions
-    """
-    cmd = "dpkg -l | grep -i spring"
-    op = execmd(cmd)
-    check_package_version = []
-    for line in op:
-        check_package_version.append(line.replace(" " * 26, "    "))
-    """
+    # 10) check packages and versions(Moved to Thread)
     # check memory
     #cmd = "free -m"
     cmd = "free -m | grep Mem:"
@@ -934,12 +973,7 @@ def pre_upgrade_check(ip):
     testdetail[ip]["Pre-Upgrade check"]["Supported vSphere versions"] = str("\n".join(svsp))
 
 
-def pingstatus(op):
-    pgst = "SUCCESS"
-    for line in op:
-        if "0 packets received" in line:
-            pgst = "FAIL"
-    return pgst
+
 
 def network_check(ip):
     try:
@@ -1141,15 +1175,17 @@ def network_check(ip):
             # Check the dump in springpathDS for HX < 2.5
             chkdump = ""
             # check for all HX versions
+            # If the dumpfile present, then it is Fail
             try:
                 cmd = "ls /vmfs/volumes/Spri*/vmkdump"
                 op = execmd(cmd)
-                if "Not able to run the command" in op:
-                    chkdump = "PASS"
-                elif "dumpfile" in op:
-                    chkdump = "FAIL"
-                else:
-                    chkdump = "PASS"
+                for line in op:
+                    if "Not able to run the command" in line:
+                        chkdump = "NA"
+                    elif ".dumpfile" in line:
+                        chkdump = "FAIL"
+                    else:
+                        chkdump = "PASS"
                 opd.update({"Check the dump in springpathDS": chkdump})
             except Exception:
                 pass
@@ -1378,7 +1414,8 @@ def create_main_report():
         fh.write("https://www.cisco.com/c/en/us/support/hyperconverged-systems/hyperflex-hx-data-platform-software/products-installation-guides-list.html" + "\r\n")
         fh.write("\r\n")
         fh.write("\r\nNote:" + "\r\n")
-        fh.write("Please check the status of Compute nodes manually, script only verifies the config on the converged nodes." + "\r\n")
+        fh.write("1) Please check the status of Compute nodes manually, script only verifies the config on the converged nodes." + "\r\n")
+        fh.write("2) Hypercheck doesnot perform FAILOVER TEST, so please ensure that the upstream is configured for network connectivity for JUMBO or NORMAL MTU size as needed." + "\r\n")
         fh.write("\r\n")
     print("\r\nMain Report File: " + filename)
     create_tar_file()
@@ -1387,7 +1424,8 @@ def create_main_report():
     print("\r\nUpgrade Guides:")
     print("\rhttps://www.cisco.com/c/en/us/support/hyperconverged-systems/hyperflex-hx-data-platform-software/products-installation-guides-list.html")
     print("\r\nNote:")
-    print("\rPlease check the status of Compute nodes manually, script only verifies the config on the converged nodes.")
+    print("\r1) Please check the status of Compute nodes manually, script only verifies the config on the converged nodes.")
+    print("\r2) Hypercheck doesnot perform FAILOVER TEST, so please ensure that the upstream is configured for network connectivity for JUMBO or NORMAL MTU size as needed.")
     print("\r\n")
 
 def create_tar_file():
@@ -1398,7 +1436,10 @@ def create_tar_file():
         tar.add(dir_name)
         tar.close()
         print("Report tar file: " + str(file))
-        print("\r\n")
+        # Copy file to /var/log/springpath
+        path = r"/var/log/springpath/"
+        shutil.copy(file, path)
+        print("Report file copied to path: /var/log/springpath")
     except Exception as e:
         print("Not able to create the Report tar file")
         print(e)
@@ -1410,7 +1451,7 @@ def create_tar_file():
 if __name__ == "__main__":
     # HX Script version
     global ver
-    ver = 3.2
+    ver = 3.4
     # Arguments passed
     global arg
     arg = ""
