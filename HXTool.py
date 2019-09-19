@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar  9 13:22:07 2018
-Updated on Mon Sep 16 2019
+Updated on Thu Jul 25
 @author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash (avshukla)
 """
 import warnings
@@ -154,6 +154,47 @@ def execmd(cmd):
     log_msg(INFO, "*" * 61 + "\r")
     log_exit(cmd)
     return output
+
+def check_psd(ips, hxusername, hxpassword, esxpassword, time_out):
+    log_msg(INFO, "\r\nChecking the HX root password\r")
+    ip = ips[0]
+    esxip = ""
+    try:
+        # Initiate SSH Connection
+        client.connect(hostname=ip, username=hxusername, password=hxpassword, timeout=time_out)
+        msg = "\r\nSSH connection established to HX Node: " + ip + "\r"
+        log_msg(INFO, msg)
+        # Get ESX IP
+        cmd = "/opt/springpath/storfs-mgmt-cli/getLocalNode.sh | grep 'esxiIP=' | cut -d= -f2"
+        op = execmd(cmd)
+        if "Not able to run the command" not in op:
+            esxip = str(op[0]).strip()
+        log_msg(INFO, "\r\nValid HX root password\r")
+    except Exception as e:
+        msg = "\r\nNot able to establish SSH connection to HX Node: " + ip + "\r"
+        log_msg(INFO, msg)
+        log_msg("", msg)
+        log_msg(ERROR, str(e) + "\r")
+        log_msg(INFO, "\r\nInvalid HX root password\r")
+        log_msg("", "\r\nInvalid HX root password\r")
+        sys.exit(0)
+
+    if esxip != "":
+        log_msg(INFO, "\r\nChecking the ESX root password\r")
+        try:
+            # Initiate SSH Connection
+            client.connect(hostname=esxip, username=hxusername, password=esxpassword, timeout=time_out)
+            msg = "\r\nSSH connection established to ESX Host: " + esxip + "\r"
+            log_msg(INFO, msg)
+            log_msg(INFO, "\r\nValid ESX root password\r")
+        except Exception as e:
+            msg = "\r\nNot able to establish SSH connection to ESX Host: " + esxip + "\r"
+            log_msg(INFO, msg)
+            log_msg("", msg)
+            log_msg(ERROR, str(e) + "\r")
+            log_msg(INFO, "\r\nInvalid ESX root password\r")
+            log_msg("", "\r\nInvalid ESX root password\r")
+            sys.exit(0)
 
 def thread_geteth0ip(ip, hxusername, hxpassword, time_out):
     try:
@@ -1059,7 +1100,7 @@ def network_check(ip):
                             chkscvm = "FAIL"
                     elif "STFSNasPlugin" in vl:
                         l = vl.split()
-                        m = re.search(r"^3\.0\.1[a-i]", hostd[ip]["version"])
+                        m = re.search(r"^3\.0\(1[a-i]\)", hostd[ip]["version"])
                         if m:
                             if l[1] == "1.0.1-21":
                                 chknasplg = "PASS"
@@ -1246,6 +1287,8 @@ def create_sub_report(ip):
         fh.write("\r\n")
         fh.write("\t\t\tHX Controller: " + ip)
         fh.write("\r\n")
+        fh.write("\t\t\tHX Hostname: " + hostd[ip].get("hostname", ""))
+        fh.write("\r\n")
         fh.write("#" * 80)
         fh.write("\r\n")
         n = 1
@@ -1356,9 +1399,9 @@ def display_result():
             print(es)
 
 
-def create_main_report():
+def create_main_report(clustername):
     # create main report file
-    filename = "HX_Tool_Main_Report.txt"
+    filename = "HX_Tool_Main_Report_" + get_date_time() + "_" + str(clustername.strip()) + ".txt"
     with open(filename, "w") as fh:
         fh.write("\t\t\tHX Health Check " + str(ver))
         fh.write("\r\n")
@@ -1445,13 +1488,13 @@ def create_tar_file():
         print(e)
 
 
-##############################################################################
-#   Main 
-##############################################################################    
+###############################################################################
+# Main Starts here
+###############################################################################
 if __name__ == "__main__":
     # HX Script version
     global ver
-    ver = 3.4
+    ver = 3.5
     # Arguments passed
     global arg
     arg = ""
@@ -1481,7 +1524,7 @@ if __name__ == "__main__":
     log_name = "HX_TOOL"
     log_start(log_file, log_name, INFO)
 
-    #RSA_KEY_FILE = "/etc/ssh/ssh_host_rsa_key"
+    # RSA_KEY_FILE = "/etc/ssh/ssh_host_rsa_key"
 
     print("\n\t\t HX Health Check " + str(ver))
     log_msg(INFO, "HX Health Check " + str(ver) + "\r")
@@ -1495,10 +1538,10 @@ if __name__ == "__main__":
     hostip = ""
     hostpath = ""
     log_msg(INFO, "Port: " + str(port) + "\r")
-    time_out = 30 # Number of seconds for timeout
+    time_out = 30  # Number of seconds for timeout
     log_msg(INFO, "Timeout: " + str(time_out) + "\r")
     # Get Host IP Address of eth1
-    #cmd = "hostname -i"
+    # cmd = "hostname -i"
     cmd = "ifconfig eth1 | grep 'inet addr:' | cut -d: -f2| cut -d' ' -f1"
     op = runcmd(cmd)
     hostip = op.strip()
@@ -1511,6 +1554,16 @@ if __name__ == "__main__":
     log_msg(INFO, "Argument: " + str(arg) + "\r")
     if arg == "detail":
         print("Option: " + str(arg))
+
+    # Get Cluster name
+    clustername = ""
+    cmd = "stcli cluster info | grep -A 6 'vCluster:' | grep 'name:' | cut -d:  -f2"
+    op = runcmd(cmd)
+    if "Not able to run the command" in op:
+        pass
+    else:
+        clustername = op.strip()
+    log_msg(INFO, "Cluster Name: " + str(clustername) + "\r")
 
     # Get Controller Mgmnt IP Addresses
     # Old cmd used to get controller IP Addresses
@@ -1529,7 +1582,6 @@ if __name__ == "__main__":
     eth1_list = list(ips)
     eth1_list.sort(key=lambda ip: map(int, reversed(ip.split('.'))))
 
-
     # Get all hostnames
     global hostd
     hostd = {}
@@ -1540,15 +1592,16 @@ if __name__ == "__main__":
     global hxips
     hxips = []
 
-
     # Create instance of SSHClient object
     client = paramiko.SSHClient()
 
     # Automatically add untrusted hosts (Handle SSH Exception for unknown host)
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    # Get all hostnames and HX IP address using threads
+    # Check HX and ESX root Password
+    check_psd(ips, hxusername, hxpassword, esxpassword, time_out)
 
+    # Get all hostnames and HX IP address using threads
     # <hostname -i> cmd is not working
     try:
         ipthreads = []
@@ -1605,7 +1658,7 @@ if __name__ == "__main__":
     ht.field_names = ["Nodes", "IP Address", "HostName"]
     ht.align = "l"
     for i, ip in enumerate(hxips):
-        ht.add_row([i+1, ip, hostd[ip].get("hostname", "")])
+        ht.add_row([i + 1, ip, hostd[ip].get("hostname", "")])
     print("\r\nHX Cluster Nodes:")
     print(ht)
     print("")
@@ -1778,7 +1831,7 @@ if __name__ == "__main__":
     for t in threads:
         t.join()
 
-    #print(esx_vmotion)
+    # print(esx_vmotion)
     for ip in hostd.keys():
         vmk1 = hostd[ip]["vmk1"]
         vmk1_list.append(vmk1)
@@ -1806,7 +1859,7 @@ if __name__ == "__main__":
     # Bug details table
     bugs = {
         "HX down": "HX cluster goes down during the UCS infra upgrade. This is because of the default failback delay interval(10sec) on ESXi." + "\nDefault Value - 10sec" + "\nModify to - 30sec"
-        }
+    }
     global bgt
     bgt = PrettyTable(hrules=ALL)
     bgt.field_names = ["Bug", "Description"]
@@ -1885,10 +1938,13 @@ if __name__ == "__main__":
             # Create report file
             create_sub_report(ip)
 
+        except KeyboardInterrupt:
+            sys_exit(0)
+
         except Exception as e:
             msg = "\r\nNot able to establish SSH connection to HX Node: " + ip + "\r"
             log_msg(INFO, msg)
-            #log_msg("", msg)
+            # log_msg("", msg)
             log_msg(ERROR, str(e) + "\r")
             # sys_exit(0)
             # stop progressbar
@@ -1902,8 +1958,7 @@ if __name__ == "__main__":
     display_result()
 
     # Print Report to file
-    create_main_report()
+    create_main_report(clustername)
 
     # End
     sys_exit(0)
-###############################################################################
