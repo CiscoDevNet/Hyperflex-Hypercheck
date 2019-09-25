@@ -317,7 +317,7 @@ def get_vmk1(ip, hxusername, esxpassword, time_out):
                 cmd = "vim-cmd hostsvc/vmotion/netconfig_get | grep -i selectedVnic"
                 op = execmd(cmd)
                 vmst = "FAIL"
-                vmkip = ""
+                vmknode = ""
                 for line in op:
                     if "unset" in line:
                         vmst = "FAIL"
@@ -325,8 +325,9 @@ def get_vmk1(ip, hxusername, esxpassword, time_out):
                         vmst = "PASS"
                         v = re.search(r"vmk\d", line)
                         if v:
-                            vmkip = v.group()
+                            vmknode = v.group()
                 esx_vmotion[esxip]["vmotion"] = vmst
+                esx_vmotion[esxip]["vmknode"] = vmknode
 
             except Exception as e:
                 log_msg(ERROR, str(e) + "\r")
@@ -336,20 +337,19 @@ def get_vmk1(ip, hxusername, esxpassword, time_out):
                 op = execmd(cmd)
                 for line in op:
                     if "vmk0" in line and "IPv4" in line:
-                        m = re.search(r"([\d]{1,3}(.[\d]{1,3}){3})", line)
-                        if m:
-                            hostd[ip]["vmk0"] = str(m.group(1))
+                        m1 = re.search(r"([\d]{1,3}(.[\d]{1,3}){3})", line)
+                        if m1:
+                            hostd[ip]["vmk0"] = str(m1.group(1))
                     elif "vmk1" in line and "IPv4" in line:
-                        m = re.search(r"([\d]{1,3}(.[\d]{1,3}){3})", line)
-                        if m:
-                            hostd[ip]["vmk1"] = str(m.group(1))
+                        m2 = re.search(r"([\d]{1,3}(.[\d]{1,3}){3})", line)
+                        if m2:
+                            hostd[ip]["vmk1"] = str(m2.group(1))
                     # checking vmotion ip address
-                    if vmkip != "":
-                        if vmkip in line and "IPv4" in line:
-                            m = re.search(r"([\d]{1,3}(.[\d]{1,3}){3})", line)
-                            if m:
-                                hostd[ip]["vmk1"] = str(m.group(1))
-                                esx_vmotion[esxip]["vmkip"] = str(m.group(1))
+                    if vmknode != "":
+                        if vmknode in line and "IPv4" in line:
+                            m3 = re.search(r"([\d]{1,3}(.[\d]{1,3}){3})", line)
+                            if m3:
+                                esx_vmotion[esxip]["vmkip"] = str(m3.group(1))
                                 if " 1500 " in line:
                                     esx_vmotion[esxip]["mtu"] = "1472"
                                 elif " 9000 " in line:
@@ -1051,7 +1051,8 @@ def network_check(ip):
             opd.update({"vMotion Enabled": vmst})
             # Check vMotion reachability check
             allvmkpingchk = []
-            if vmst == "PASS":
+            vmknode = esx_vmotion[esxip].get("vmknode", "")
+            if vmst == "PASS" and vmknode != "":
                 for vip in esx_vmotion.keys():
                     mtu = esx_vmotion[str(vip)]["mtu"]
                     vmkip = esx_vmotion[str(vip)]["vmkip"]
@@ -1059,7 +1060,7 @@ def network_check(ip):
                         continue
                     elif vmkip != "":
                         try:
-                            cmd = "vmkping -I {} -c 3 -d -s {} -i 0.01 {}".format("vmk0", mtu, vmkip)
+                            cmd = "vmkping -I {} -c 3 -d -s {} -i 0.01 {}".format(vmknode, mtu, vmkip)
                             op = execmd(cmd)
                             pst = pingstatus(op)
                             opd.update({cmd: pst})
