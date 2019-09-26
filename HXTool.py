@@ -1014,8 +1014,6 @@ def pre_upgrade_check(ip):
     testdetail[ip]["Pre-Upgrade check"]["Supported vSphere versions"] = str("\n".join(svsp))
 
 
-
-
 def network_check(ip):
     try:
         # Close connection
@@ -1095,7 +1093,10 @@ def network_check(ip):
                 for vl in vibl:
                     if "scvmclient" in vl:
                         l = vl.split()
-                        if hostd[ip]["version"] == l[1]:
+                        v = hostd[ip]["version"]
+                        v = v.replace("(", ".")
+                        v = v.replace(")", "")
+                        if v in l[1]:
                             chkscvm = "PASS"
                         else:
                             chkscvm = "FAIL"
