@@ -2,7 +2,7 @@
 """
 Created on Fri Mar  9 13:22:07 2018
 Updated on Thu Jul 25
-@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash (avshukla)
+@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
 """
 import warnings
 warnings.filterwarnings(action='ignore',module='.*paramiko.*')
@@ -1285,7 +1285,7 @@ def create_sub_report(ip):
     filename = "HX_Report_" + str(ip) +".txt"
     subreportfiles.append(filename)
     with open(filename, "w") as fh:
-        fh.write("\t\t\t     HX Health Check " + str(ver))
+        fh.write("\t\t\t     HX Health Check " + str(toolversion))
         fh.write("\r\n")
         fh.write("\t\t\tHX Controller: " + ip)
         fh.write("\r\n")
@@ -1405,7 +1405,7 @@ def create_main_report(clustername):
     # create main report file
     filename = "HX_Tool_Main_Report_" + get_date_time() + "_" + str(clustername.strip()) + ".txt"
     with open(filename, "w") as fh:
-        fh.write("\t\t\tHX Health Check " + str(ver))
+        fh.write("\t\t\tHX Health Check " + str(toolversion))
         fh.write("\r\n")
         fh.write("\t\t\tHX Tool Main Report:")
         fh.write("\r\n")
@@ -1495,8 +1495,8 @@ def create_tar_file():
 ###############################################################################
 if __name__ == "__main__":
     # HX Script version
-    global ver
-    ver = 3.5
+    global toolversion
+    toolversion = 3.5
     # Arguments passed
     global arg
     arg = ""
@@ -1506,7 +1506,7 @@ if __name__ == "__main__":
         except Exception:
             pass
     if arg == "-h" or arg == "--help" or arg == "help":
-        print("\n\t\t HX Health Check " + str(ver))
+        print("\n\t\t HX Health Check " + str(toolversion))
         print("\nSupported HX Versions: 1.8, 2.6, 3.0, 3.5, 4.0")
         print("\nPre-requisite: Script needs HX and ESXi root password information to check all conditions.")
         print("\nHX Health Check script will do below checks on each cluster nodes:")
@@ -1528,8 +1528,8 @@ if __name__ == "__main__":
 
     # RSA_KEY_FILE = "/etc/ssh/ssh_host_rsa_key"
 
-    print("\n\t\t HX Health Check " + str(ver))
-    log_msg(INFO, "HX Health Check " + str(ver) + "\r")
+    print("\n\t\t HX Health Check " + str(toolversion))
+    log_msg(INFO, "HX Health Check " + str(toolversion) + "\r")
     # HX Controller parameter
     print("\nPlease enter below info of HX-Cluster:")
     hxusername = "root"
