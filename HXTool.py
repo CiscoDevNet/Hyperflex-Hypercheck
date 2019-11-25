@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar  9 13:22:07 2018
-Updated on Thu Jul 25
+Updated on Sat Nov 23
 @author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
 """
 import warnings
@@ -799,12 +799,20 @@ def pre_upgrade_check(ip):
            msg = "\r\nDNS IP Address: " + str(dnsip) + "\r"
            log_msg(INFO, msg)
     if dnsip:
-        cmd = "ping {} -c 3 -i 0.01".format(dnsip)
-        op = execmd(cmd)
-        dns_check = pingstatus(op)
-
+        #cmd = "ping {} -c 3 -i 0.01".format(dnsip)
+        cmd = "dig @{}".format(dnsip)
+        dns_check = "FAIL"
+        digop = execmd(cmd)
+        for line in digop:
+            if "HEADER" in line and "status: NOERROR" in line:
+                dns_check = "PASS"
+                break
+            elif "OPT PSEUDOSECTION:" in line:
+                break
+        digop = [(str(l).rstrip()).replace("\t", " "*5) for l in digop]
     # Update Test summary
     testsum[ip].update({"DNS check": dns_check})
+
     # 4) vCenter Reachability check
     cmd = "stcli cluster info | grep vCenterURL"
     op = execmd(cmd)
@@ -932,7 +940,7 @@ def pre_upgrade_check(ip):
     if op:
         for line in op:
             l = line.split()
-            frmem = int(l[3]) - int(l[4]) - int(l[5])
+            frmem = int(l[-1])
             if int(frmem) >= 2048:
                 check_memory = "PASS"
             else:
@@ -966,6 +974,16 @@ def pre_upgrade_check(ip):
                     vl = l[1]
                     svsp = vl.split(",")
     testsum[ip].update({"Supported vSphere versions": str("\n".join(svsp))})
+    # Check permissions for /tmp
+    cmd = "ls -ld /tmp"
+    op = execmd(cmd)
+    tmprcheck = ""
+    for line in op:
+        if line.startswith("drwxr-xrwx"):
+            tmprcheck = "PASS"
+        else:
+            tmprcheck = "FAIL"
+    testsum[ip].update({"Check permissions for /tmp": tmprcheck})
     ######################
     # Update Test Detail info
     testdetail[ip]["Pre-Upgrade check"] = OrderedDict()
@@ -976,7 +994,7 @@ def pre_upgrade_check(ip):
     # NTP sync check
     testdetail[ip]["Pre-Upgrade check"]["NTP sync check"] = {"Status": ntp_sync_line, "Result": ntp_sync_check}
     # DNS check
-    testdetail[ip]["Pre-Upgrade check"]["DNS check"] = {"Status": dnsip, "Result": dns_check}
+    testdetail[ip]["Pre-Upgrade check"]["DNS check"] = {"Status": str("\n".join(digop)), "Result": dns_check}
     # vCenter reachability check
     testdetail[ip]["Pre-Upgrade check"]["vCenter reachability check"] = {"Status": vcenterip, "Result": vcenter_check}
     # Timestamp check
@@ -1012,7 +1030,8 @@ def pre_upgrade_check(ip):
     testdetail[ip]["Pre-Upgrade check"]["Incidence of OOM in the log file"] = str("\n".join(check_oom))
     # Supported vSphere versions
     testdetail[ip]["Pre-Upgrade check"]["Supported vSphere versions"] = str("\n".join(svsp))
-
+    # Check permissions for /tmp
+    testdetail[ip]["Pre-Upgrade check"]["Check permissions for /tmp"] = tmprcheck
 
 def network_check(ip):
     try:
@@ -1058,7 +1077,7 @@ def network_check(ip):
                         continue
                     elif vmkip != "":
                         try:
-                            cmd = "vmkping -I {} -c 3 -d -s {} -i 0.01 {}".format(vmknode, mtu, vmkip)
+                            cmd = "vmkping -I {} -c 3 -d -s {} {} -S vmotion".format(vmknode, mtu, vmkip)
                             op = execmd(cmd)
                             pst = pingstatus(op)
                             opd.update({cmd: pst})
@@ -1227,12 +1246,33 @@ def network_check(ip):
                         chkdump = "NA"
                     elif ".dumpfile" in line:
                         chkdump = "FAIL"
+                    elif "No such file or directory" in line:
+                        chkdump = "PASS"
                     else:
                         chkdump = "PASS"
                 opd.update({"Check the dump in springpathDS": chkdump})
             except Exception:
                 pass
-
+            # VMware Tools location check:
+            try:
+                cmd = "esxcli system settings advanced list -o /UserVars/ProductLockerLocation | grep -i 'string value'"
+                op = execmd(cmd)
+                svalue = ""
+                dsvalue = ""
+                vmtoolcheck = ""
+                for line in op:
+                    if line.startswith("String Value"):
+                        svalue = line.split(": ")[1]
+                    elif line.startswith("Default String Value"):
+                        dsvalue = line.split(": ")[1]
+                if svalue != "" and dsvalue != "":
+                    if svalue == dsvalue:
+                        vmtoolcheck = "PASS"
+                    else:
+                        vmtoolcheck = "FAIL"
+                opd.update({"VMware Tools location check": vmtoolcheck})
+            except Exception:
+                pass
             # Update Test Detail
             nwtestdetail.update({esxip: opd})
             # Close connection
@@ -1271,6 +1311,8 @@ def network_check(ip):
                 nwtestsum[esxip]["Check STFSNas plugin version"] = chknasplg
             # No extra controller vm folders check
             nwtestsum[esxip]["No extra controller vm folders check"] = vmfld[:4]
+            # VMware Tools location check
+            nwtestsum[esxip]["VMware Tools location check"] = vmtoolcheck
 
     except Exception as e:
         msg = "\r\nNot able to establish SSH connection to ESX Host: " + esxip + "\r"
@@ -1496,7 +1538,7 @@ def create_tar_file():
 if __name__ == "__main__":
     # HX Script version
     global toolversion
-    toolversion = 3.5
+    toolversion = 3.6
     # Arguments passed
     global arg
     arg = ""
