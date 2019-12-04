@@ -1077,7 +1077,7 @@ def network_check(ip):
                         continue
                     elif vmkip != "":
                         try:
-                            cmd = "vmkping -I {} -c 3 -d -s {} {} -S vmotion".format(vmknode, mtu, vmkip)
+                            cmd = "vmkping -I {} -c 3 -d -s {} {}".format(vmknode, mtu, vmkip)  # Removed vmotion netstack due to CSCvo58388
                             op = execmd(cmd)
                             pst = pingstatus(op)
                             opd.update({cmd: pst})
@@ -1213,7 +1213,7 @@ def network_check(ip):
                 pass
             # Check extra contoller vm folders
             try:
-                cmd = "esxcli hardware platform get | grep -i serial"
+                cmd = "esxcli hardware platform get | grep -i serial | grep -vi enclosure"  # In response to issue no.7
                 op = execmd(cmd)
                 op = "".join(op)
                 srno = op.split(":")[1]
