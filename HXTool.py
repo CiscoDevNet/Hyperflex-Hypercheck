@@ -1215,21 +1215,31 @@ def network_check(ip):
             try:
                 cmd = "esxcli hardware platform get | grep -i serial"
                 op = execmd(cmd)
-                op = "".join(op)
-                srno = op.split(":")[1]
-                cmd = "ls /vmfs/volumes/SpringpathDS-" + str(srno.strip())
-                op = execmd(cmd)
-                op = [x for x in op if x != ""]
-                vmfld = "PASS"
-                #print(len(op))
-                fcnt = 0
-                if op:
-                    for line in op:
-                        l = line.split()
-                        for d in l:
-                            if d.startswith("stCtlVM"):
-                                fcnt += 1
-                if fcnt > 1:
+                srno = ""
+                vmfld = ""
+                for line in op:
+                    if line.startswith("Serial Number"):
+                        l = line.split(": ")
+                        try:
+                            srno = l[1]
+                            srno = srno.strip()
+                        except Exception:
+                            pass
+                        break
+                if srno != "":
+                    cmd = "ls /vmfs/volumes/SpringpathDS-" + str(srno.strip())
+                    op = execmd(cmd)
+                    op = [x for x in op if x != ""]
+                    vmfld = "PASS"
+                    #print(len(op))
+                    fcnt = 0
+                    if op:
+                        for line in op:
+                            l = line.split()
+                            for d in l:
+                                if d.startswith("stCtlVM"):
+                                    fcnt += 1
+                    if fcnt > 1:
                         vmfld = "FAIL" + "\nBug: HX Down"
                 opd.update({"No extra controller vm folders": vmfld})
             except Exception:
