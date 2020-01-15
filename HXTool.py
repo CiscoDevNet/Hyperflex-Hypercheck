@@ -827,11 +827,11 @@ def pre_upgrade_check(ip):
         else:
             try:
                 l = line.split(":")
-                if len(l) == 2:
-                    dnip = l[1]
-                    dnip = dnip.replace("https://", "")
+                if len(l) == 3:
+                    dnip = l[2]
+                    dnip = dnip.replace("//", "")
                     vcenterip = dnip.strip()
-                    msg = "\r\nvCenter IP Address: " + str(vcenterip) + "\r"
+                    msg = "\r\nvCenter FQDN: " + str(vcenterip) + "\r"
                     log_msg(INFO, msg)
             except Exception:
                 pass
