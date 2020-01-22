@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Mar  9 13:22:07 2018
-Updated on Sat Nov 23
+Updated on 22-Jan-2020
 @author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
 """
 import warnings
@@ -984,6 +984,12 @@ def pre_upgrade_check(ip):
         else:
             tmprcheck = "FAIL"
     testsum[ip].update({"Check permissions for /tmp": tmprcheck})
+    # Upgrade suggestion for HX version 2.1(1x)
+    hxv = hostd[ip]["version"]
+    hxupsug = ""
+    m = re.search(r"2\.1[\.|(]1.", hxv)
+    if m:
+        hxupsug = "DO NOT direct upgrade to 3.5.2g.\nUpgrade to 3.5.2f first."
     ######################
     # Update Test Detail info
     testdetail[ip]["Pre-Upgrade check"] = OrderedDict()
@@ -1032,7 +1038,8 @@ def pre_upgrade_check(ip):
     testdetail[ip]["Pre-Upgrade check"]["Supported vSphere versions"] = str("\n".join(svsp))
     # Check permissions for /tmp
     testdetail[ip]["Pre-Upgrade check"]["Check permissions for /tmp"] = tmprcheck
-
+    if hxupsug != "":
+        testdetail[ip]["Pre-Upgrade check"]["Upgrade suggestion for HX version 2.1(1x)"] = hxupsug
 def network_check(ip):
     try:
         # Close connection
@@ -1077,7 +1084,8 @@ def network_check(ip):
                         continue
                     elif vmkip != "":
                         try:
-                            cmd = "vmkping -I {} -c 3 -d -s {} {}".format(vmknode, mtu, vmkip)  # Removed vmotion netstack due to CSCvo58388
+                            #cmd = "vmkping -I {} -c 3 -d -s {} {} -S vmotion".format(vmknode, mtu, vmkip)
+                            cmd = "vmkping -I {} -c 3 -d -s {} -i 0.01 {}".format(vmknode, mtu, vmkip)
                             op = execmd(cmd)
                             pst = pingstatus(op)
                             opd.update({cmd: pst})
@@ -1213,7 +1221,7 @@ def network_check(ip):
                 pass
             # Check extra contoller vm folders
             try:
-                cmd = "esxcli hardware platform get | grep -i serial | grep -vi enclosure"  # In response to issue no.7
+                cmd = "esxcli hardware platform get | grep -i serial"
                 op = execmd(cmd)
                 srno = ""
                 vmfld = ""
@@ -1248,6 +1256,7 @@ def network_check(ip):
             chkdump = ""
             # check for all HX versions
             # If the dumpfile present, then it is Fail
+            """
             try:
                 cmd = "ls /vmfs/volumes/Spri*/vmkdump"
                 op = execmd(cmd)
@@ -1263,6 +1272,7 @@ def network_check(ip):
                 opd.update({"Check the dump in springpathDS": chkdump})
             except Exception:
                 pass
+            """
             # VMware Tools location check:
             try:
                 cmd = "esxcli system settings advanced list -o /UserVars/ProductLockerLocation | grep -i 'string value'"
@@ -1281,6 +1291,27 @@ def network_check(ip):
                     else:
                         vmtoolcheck = "FAIL"
                 opd.update({"VMware Tools location check": vmtoolcheck})
+            except Exception:
+                pass
+            # Micron 5100 Drive Firmware Check
+            try:
+                cmd = "esxcli storage core device list"
+                op = execmd(cmd)
+                micronbug = ""
+                mflag1 = mflag2 = 0
+                for line in op:
+                    if "Model:" in line and "Micron_5100" in line:
+                        mflag1 = 1
+                        mflag2 = 0
+                        continue
+                    elif mflag1 == 1 and "Revision:" in line:
+                        mflag1 = 0
+                        mflag2 = 1
+                    if mflag2 == 1 and "U049" in line:
+                        micronbug = "Please Refer: https://tinyurl.com/vqnytww"
+                        break
+                if micronbug != "":
+                    opd.update({"Micron 5100 Drive Firmware Check": micronbug})
             except Exception:
                 pass
             # Update Test Detail
@@ -1548,7 +1579,8 @@ def create_tar_file():
 if __name__ == "__main__":
     # HX Script version
     global toolversion
-    toolversion = 3.6
+    toolversion = 3.7
+    builddate = "2020-1-22"
     # Arguments passed
     global arg
     arg = ""
@@ -1582,6 +1614,11 @@ if __name__ == "__main__":
 
     print("\n\t\t HX Health Check " + str(toolversion))
     log_msg(INFO, "HX Health Check " + str(toolversion) + "\r")
+    hxcdt = datetime.datetime.now()
+    bdt = datetime.datetime.strptime(builddate, "%Y-%m-%d")
+    ndays = (hxcdt - bdt).days
+    if int(ndays) >= 15:
+        print("\n    The script in use is older than 15 days. Please download the latest script from github.")
     # HX Controller parameter
     print("\nPlease enter below info of HX-Cluster:")
     hxusername = "root"
