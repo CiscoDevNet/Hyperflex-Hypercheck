@@ -826,7 +826,7 @@ def pre_upgrade_check(ip):
            log_msg(INFO, msg)
         else:
             try:
-                l = line.split(":")
+                l = line.split(": ")
                 if len(l) == 2:
                     dnip = l[1]
                     dnip = dnip.replace("https://", "")
