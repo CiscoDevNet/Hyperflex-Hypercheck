@@ -1614,11 +1614,11 @@ if __name__ == "__main__":
 
     print("\n\t\t HX Health Check " + str(toolversion))
     log_msg(INFO, "HX Health Check " + str(toolversion) + "\r")
-    hxcdt = datetime.datetime.now()
-    bdt = datetime.datetime.strptime(builddate, "%Y-%m-%d")
-    ndays = (hxcdt - bdt).days
-    if int(ndays) >= 15:
-        print("\n    The script in use is older than 15 days. Please download the latest script from github.")
+    # hxcdt = datetime.datetime.now()
+    # bdt = datetime.datetime.strptime(builddate, "%Y-%m-%d")
+    # ndays = (hxcdt - bdt).days
+    # if int(ndays) >= 15:
+    #    print("\n    The script in use is older than 15 days. Please download the latest script from github.")
     # HX Controller parameter
     print("\nPlease enter below info of HX-Cluster:")
     hxusername = "root"
