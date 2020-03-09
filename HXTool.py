@@ -234,7 +234,7 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
             cmd = "stcli services ntp show"
             hntp = execmd(cmd)
             hntp = [i for i in hntp if "-" not in i]
-            hostd[ip]["ntp source"] = ("".join(hntp)).encode("ascii", "ignore")
+            hostd[ip]["ntp source"] = (",".join(hntp)).encode("ascii", "ignore")
         except Exception as e:
             log_msg(ERROR, str(e) + "\r")
         # check package and versions
@@ -613,10 +613,24 @@ def zookeeper_check(ip):
     # 5) Current Epoch value
     cmd = 'grep -m1 "" /var/zookeeper/version-2/acceptedEpoch'
     op = execmd(cmd)
-    accepoch = "".join(op)
+    acflag = 0
+    for line in op:
+        if "Not able to run the command" in line or "No such file or directory" in line:
+            acflag = 1
+    if acflag:
+        accepoch = ""
+    else:
+        accepoch = "".join(op)
     cmd = 'grep -m1 "" /var/zookeeper/version-2/currentEpoch'
     op = execmd(cmd)
-    curepoch = "".join(op)
+    cuflag = 0
+    for line in op:
+        if "Not able to run the command" in line or "No such file or directory" in line:
+            cuflag = 1
+    if cuflag:
+        curepoch = ""
+    else:
+        curepoch = "".join(op)
 
     # 6) Disk usage
     # Each should be less than 80%
@@ -755,9 +769,15 @@ def pre_upgrade_check(ip):
             l = line.split(": ")
             if len(l) == 2:
                 version = l[1]
-                hostd[ip]["version"] = version.strip()
-                if l[1].startswith("1.8"):
-                    vflag = True
+                #Cluster version: Version(4.0.2a-35118)
+                if "Version" in version:
+                    m = re.search(r"\((.+)\)", version)
+                    if m:
+                        hostd[ip]["version"] = m.group(1)
+                else:
+                    hostd[ip]["version"] = version.strip()
+                    if l[1].startswith("1.8"):
+                        vflag = True
     # 2) NTP deamon running check
     ntp_deamon_check = "FAIL"
     cmd = "ps aux | grep ntp"
@@ -932,7 +952,7 @@ def pre_upgrade_check(ip):
                 dskst = "Bad"
                 testsum[ip].update({"Disk usage(/var/stv) check": "FAIL"})
     # 10) check packages and versions(Moved to Thread)
-    # check memory
+    # 10) check memory
     #cmd = "free -m"
     cmd = "free -m | grep Mem:"
     op = execmd(cmd)
@@ -946,13 +966,13 @@ def pre_upgrade_check(ip):
             else:
                 check_memory = "FAIL"
     testsum[ip].update({"Memory usage check": check_memory})
-    # check CPU
+    # 11) check CPU
     cmd = "top -b -n 1 | grep -B7 KiB"
     check_cpu = execmd(cmd)
     if not check_cpu:
         cmd = "top -b -n 1 | grep Cpu"
         check_cpu = execmd(cmd)
-    # check Out of memory
+    # 12) check Out of memory
     #cmd = "cat /var/log/kern.log | grep -i 'out of memory' -A5"
     cmd = "grep -i 'out of memory' -A5 /var/log/kern.log"
     op = execmd(cmd)
@@ -962,7 +982,7 @@ def pre_upgrade_check(ip):
     else:
         check_oom = op
         testsum[ip].update({"Incidence of OOM in the log file": "FAIL"})
-    # ESXi supported upgrade
+    # 13) ESXi supported upgrade
     cmd = "grep -i ^esxi.version /usr/share/springpath/storfs-fw/springpath-hcl.conf"
     op = execmd(cmd)
     svsp = []
@@ -974,7 +994,7 @@ def pre_upgrade_check(ip):
                     vl = l[1]
                     svsp = vl.split(",")
     testsum[ip].update({"Supported vSphere versions": str("\n".join(svsp))})
-    # Check permissions for /tmp
+    # 14) Check permissions for /tmp
     cmd = "ls -ld /tmp"
     op = execmd(cmd)
     tmprcheck = ""
@@ -984,13 +1004,23 @@ def pre_upgrade_check(ip):
         else:
             tmprcheck = "FAIL"
     testsum[ip].update({"Check permissions for /tmp": tmprcheck})
-    # Upgrade suggestion for HX version 2.1(1x)
+    # 15) Upgrade suggestion for HX version 2.1(1x)
     hxv = hostd[ip]["version"]
     hxupsug = ""
     m = re.search(r"2\.1[\.|(]1.", hxv)
     if m:
         hxupsug = "DO NOT direct upgrade to 3.5.2g.\nUpgrade to 3.5.2f first."
-    ######################
+    # 16) Different sector size check for HX version equal to 3.5.2a or < 3.0.1j
+    hxsectchk = ""
+    if "3.5.2a" in hxv:
+        hxsectchk = "Do not perform node expansion or add drives (with HX-SD38TBE1NK9) before \nupgrading to higher versions"
+    elif hxv.startswith("1.") or hxv.startswith("2."):
+        hxsectchk = "Do not perform node expansion or add drives (with HX-SD38TBE1NK9) before \nupgrading to higher versions"
+    else:
+        m = re.search(r"3\.0\.1[a-j]", hxv)
+        if m:
+            hxsectchk = "Do not perform node expansion or add drives (with HX-SD38TBE1NK9) before \nupgrading to higher versions"
+    #####################################################
     # Update Test Detail info
     testdetail[ip]["Pre-Upgrade check"] = OrderedDict()
     # HX Cluster version
@@ -1040,6 +1070,9 @@ def pre_upgrade_check(ip):
     testdetail[ip]["Pre-Upgrade check"]["Check permissions for /tmp"] = tmprcheck
     if hxupsug != "":
         testdetail[ip]["Pre-Upgrade check"]["Upgrade suggestion for HX version 2.1(1x)"] = hxupsug
+    if hxsectchk != "":
+        testdetail[ip]["Pre-Upgrade check"]["Different sector size check"] = hxsectchk
+
 def network_check(ip):
     try:
         # Close connection
@@ -1085,7 +1118,7 @@ def network_check(ip):
                     elif vmkip != "":
                         try:
                             #cmd = "vmkping -I {} -c 3 -d -s {} {} -S vmotion".format(vmknode, mtu, vmkip)
-                            cmd = "vmkping -I {} -c 3 -d -s {} -i 0.01 {}".format(vmknode, mtu, vmkip)
+                            cmd = "vmkping -I {} -c 3 -d -s {} -i 0.05 {}".format(vmknode, mtu, vmkip)
                             op = execmd(cmd)
                             pst = pingstatus(op)
                             opd.update({cmd: pst})
@@ -1167,10 +1200,10 @@ def network_check(ip):
             allpingchk = []
             for h in esx_hostsl:
                 try:
-                    cmd = "vmkping -I {} -c 3 -d -s 1472 -i 0.01 {}".format("vmk0", h)
+                    cmd = "vmkping -I {} -c 3 -d -s 1472 -i 0.05 {}".format("vmk0", h)
                     op = execmd(cmd)
                     pst = pingstatus(op)
-                    cm = "vmkping -I {} -c 3 -d -s 1472 -i 0.01 {}".format("vmk0", h)
+                    cm = "vmkping -I {} -c 3 -d -s 1472 -i 0.05 {}".format("vmk0", h)
                     opd.update({cm : pst})
                     allpingchk.append(pst)
                 except Exception:
@@ -1179,10 +1212,10 @@ def network_check(ip):
             if len(vmk1_list) > 0 :
                 for k in vmk1_list:
                     try:
-                        cmd = "vmkping -I {} -c 3 -d -s 8972 -i 0.01 {}".format("vmk1", k)
+                        cmd = "vmkping -I {} -c 3 -d -s 8972 -i 0.05 {}".format("vmk1", k)
                         op = execmd(cmd)
                         pst = pingstatus(op)
-                        cm = "vmkping -I {} -c 3 -d -s 8972 -i 0.01 {}".format("vmk1", k)
+                        cm = "vmkping -I {} -c 3 -d -s 8972 -i 0.05 {}".format("vmk1", k)
                         opd.update({cm: pst})
                         allpingchk.append(pst)
                     except Exception:
@@ -1191,10 +1224,10 @@ def network_check(ip):
             if len(hxips) > 0 :
                 for h in hxips:
                     try:
-                        cmd = "vmkping -I {} -c 3 -d -s 1472 -i 0.01 {}".format("vmk0", h)
+                        cmd = "vmkping -I {} -c 3 -d -s 1472 -i 0.05 {}".format("vmk0", h)
                         op = execmd(cmd)
                         pst = pingstatus(op)
-                        cm = "vmkping -I {} -c 3 -d -s 1472 -i 0.01 {}".format("vmk0", h)
+                        cm = "vmkping -I {} -c 3 -d -s 1472 -i 0.05 {}".format("vmk0", h)
                         opd.update({cm: pst})
                         allpingchk.append(pst)
                     except Exception:
@@ -1203,10 +1236,10 @@ def network_check(ip):
             if len(eth1_list) > 0 :
                 for k in eth1_list:
                     try:
-                        cmd = "vmkping -I {} -c 3 -d -s 8972 -i 0.01 {}".format("vmk1", k)
+                        cmd = "vmkping -I {} -c 3 -d -s 8972 -i 0.05 {}".format("vmk1", k)
                         op = execmd(cmd)
                         pst = pingstatus(op)
-                        cm = "vmkping -I {} -c 3 -d -s 8972 -i 0.01 {}".format("vmk1", k)
+                        cm = "vmkping -I {} -c 3 -d -s 8972 -i 0.05 {}".format("vmk1", k)
                         opd.update({cm: pst})
                         allpingchk.append(pst)
                     except Exception:
@@ -1614,11 +1647,11 @@ if __name__ == "__main__":
 
     print("\n\t\t HX Health Check " + str(toolversion))
     log_msg(INFO, "HX Health Check " + str(toolversion) + "\r")
-    # hxcdt = datetime.datetime.now()
-    # bdt = datetime.datetime.strptime(builddate, "%Y-%m-%d")
-    # ndays = (hxcdt - bdt).days
-    # if int(ndays) >= 15:
-    #    print("\n    The script in use is older than 15 days. Please download the latest script from github.")
+#    hxcdt = datetime.datetime.now()
+#    bdt = datetime.datetime.strptime(builddate, "%Y-%m-%d")
+#    ndays = (hxcdt - bdt).days
+#    if int(ndays) >= 15:
+#        print("\n    The script in use is older than 15 days. Please download the latest script from github.")
     # HX Controller parameter
     print("\nPlease enter below info of HX-Cluster:")
     hxusername = "root"
@@ -1723,7 +1756,7 @@ if __name__ == "__main__":
     for ip in hxips:
         th = threading.Thread(target=thread_sshconnect, args=(ip, hxusername, hxpassword, time_out,))
         th.start()
-        time.sleep(30)
+        time.sleep(35)
         threads.append(th)
 
     for t in threads:
@@ -1927,6 +1960,7 @@ if __name__ == "__main__":
         vmk1 = hostd[ip]["vmk1"]
         vmk1_list.append(vmk1)
 
+    vmk1_list = [v for v in vmk1_list if v != " "]
     if vmk1_list:
         try:
             vmk1_list.sort(key=lambda ip: map(int, reversed(ip.split('.'))))
