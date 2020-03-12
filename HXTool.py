@@ -1575,8 +1575,9 @@ def create_main_report(clustername):
         fh.write("https://www.cisco.com/c/en/us/support/hyperconverged-systems/hyperflex-hx-data-platform-software/products-installation-guides-list.html" + "\r\n")
         fh.write("\r\n")
         fh.write("\r\nNote:" + "\r\n")
-        fh.write("1) Please check the status of Compute nodes manually, script only verifies the config on the converged nodes." + "\r\n")
-        fh.write("2) Hypercheck doesnot perform FAILOVER TEST, so please ensure that the upstream is configured for network connectivity for JUMBO or NORMAL MTU size as needed." + "\r\n")
+        fh.write("1) If upgrading to HX 4.0(2a), please review the following link and perform workaround – https://tinyurl.com/wc7j5qp" + "\r\n")
+        fh.write("2) Please check the status of Compute nodes manually, script only verifies the config on the converged nodes." + "\r\n")
+        fh.write("3) Hypercheck doesnot perform FAILOVER TEST, so please ensure that the upstream is configured for network connectivity for JUMBO or NORMAL MTU size as needed." + "\r\n")
         fh.write("\r\n")
     print("\r\nMain Report File: " + filename)
     create_tar_file()
@@ -1585,8 +1586,9 @@ def create_main_report(clustername):
     print("\r\nUpgrade Guides:")
     print("\rhttps://www.cisco.com/c/en/us/support/hyperconverged-systems/hyperflex-hx-data-platform-software/products-installation-guides-list.html")
     print("\r\nNote:")
-    print("\r1) Please check the status of Compute nodes manually, script only verifies the config on the converged nodes.")
-    print("\r2) Hypercheck doesnot perform FAILOVER TEST, so please ensure that the upstream is configured for network connectivity for JUMBO or NORMAL MTU size as needed.")
+    print("\r1) If upgrading to HX 4.0(2a), please review the following link and perform workaround – https://tinyurl.com/wc7j5qp")
+    print("\r2) Please check the status of Compute nodes manually, script only verifies the config on the converged nodes.")
+    print("\r3) Hypercheck doesnot perform FAILOVER TEST, so please ensure that the upstream is configured for network connectivity for JUMBO or NORMAL MTU size as needed.")
     print("\r\n")
 
 def create_tar_file():
@@ -1612,8 +1614,8 @@ def create_tar_file():
 if __name__ == "__main__":
     # HX Script version
     global toolversion
-    toolversion = 3.7
-    builddate = "2020-1-22"
+    toolversion = 3.8
+    builddate = "2020-3-10"
     # Arguments passed
     global arg
     arg = ""
@@ -1647,11 +1649,11 @@ if __name__ == "__main__":
 
     print("\n\t\t HX Health Check " + str(toolversion))
     log_msg(INFO, "HX Health Check " + str(toolversion) + "\r")
-#    hxcdt = datetime.datetime.now()
-#    bdt = datetime.datetime.strptime(builddate, "%Y-%m-%d")
-#    ndays = (hxcdt - bdt).days
-#    if int(ndays) >= 15:
-#        print("\n    The script in use is older than 15 days. Please download the latest script from github.")
+    hxcdt = datetime.datetime.now()
+    bdt = datetime.datetime.strptime(builddate, "%Y-%m-%d")
+    ndays = (hxcdt - bdt).days
+    if int(ndays) >= 30:
+        print("\n    The script in use might be old. Please check and confirm that this is the latest script on Github.")
     # HX Controller parameter
     print("\nPlease enter below info of HX-Cluster:")
     hxusername = "root"
