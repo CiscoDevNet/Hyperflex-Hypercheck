@@ -549,7 +549,7 @@ def cluster_services_check(ip):
         if "Springpath File System" in line and "Not" in line:
             cluster_service_chk = "FAIL"
             break
-        elif "SCVM Client" in line and "Not" in line:
+        elif line.startswith("SCVM Client") and "Not" in line:
             cluster_service_chk = "FAIL"
             break
         elif "System Management Service" in line and "Not" in line:
@@ -937,20 +937,8 @@ def pre_upgrade_check(ip):
         nodecheck = "PASS"
     testsum[ip].update({"Extra pnodes check": nodecheck})
     # 9) Check Disk usage(/var/stv)
-    cmd = "df -h | grep -i /var/stv"
-    dskusg = ""
-    dskst  = ""
-    op = execmd(cmd)
-    for line in op:
-        m = re.search(r"(\d+)%", line)
-        if m:
-            dskusg = m.group(1)
-            if int(dskusg) <= 80 :
-                dskst = "Good"
-                testsum[ip].update({"Disk usage(/var/stv) check": "PASS"})
-            else:
-                dskst = "Bad"
-                testsum[ip].update({"Disk usage(/var/stv) check": "FAIL"})
+    # Removed as per the suggestion. The same check is done in Zookeeper Test6
+
     # 10) check packages and versions(Moved to Thread)
     # 10) check memory
     #cmd = "free -m"
@@ -1053,7 +1041,7 @@ def pre_upgrade_check(ip):
     # No extra pnodes
     testdetail[ip]["Pre-Upgrade check"]["No extra pnodes"] = nodecheck
     # Disk usage(/var/stv)
-    testdetail[ip]["Pre-Upgrade check"]["Disk usage(/var/stv)"] = {"Status": str(dskusg) + "%", "Result": dskst}
+    #testdetail[ip]["Pre-Upgrade check"]["Disk usage(/var/stv)"] = {"Status": str(dskusg) + "%", "Result": dskst}
     # Check package & versions
     testdetail[ip]["Pre-Upgrade check"]["Check package & versions"] = {"Status": str("\n".join(hostd[ip]["package & versions"])), "Result": str(hostd[ip]["check package & versions"])}
     # Check Iptables count
