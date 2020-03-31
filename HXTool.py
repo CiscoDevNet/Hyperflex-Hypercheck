@@ -233,7 +233,7 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
         try:
             cmd = "stcli services ntp show"
             hntp = execmd(cmd)
-            hntp = [i for i in hntp if "-" not in i]
+            hntp = [i for i in hntp if "----" not in i]
             hostd[ip]["ntp source"] = (",".join(hntp)).encode("ascii", "ignore")
         except Exception as e:
             log_msg(ERROR, str(e) + "\r")
