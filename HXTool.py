@@ -1109,9 +1109,10 @@ def network_check(ip):
 
                             # The first ping in a while might drop a
                             # few packets while the ARP cache
-                            # populates, particularly with an
-                            # aggressive timeout.  Rather than attempt
-                            # to fix the pingstatus() parser, which
+                            # populates if vMotion has been idle,
+                            # particularly with an aggressive timeout
+                            # as we have here.  Rather than attempt to
+                            # fix the pingstatus() parser, which
                             # expects 0% packet loss, we will run the
                             # ping command twice to pre-populate the
                             # ARP cache.
