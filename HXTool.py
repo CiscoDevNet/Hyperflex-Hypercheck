@@ -1106,13 +1106,30 @@ def network_check(ip):
                     elif vmkip != "":
                         try:
                             #cmd = "vmkping -I {} -c 3 -d -s {} {} -S vmotion".format(vmknode, mtu, vmkip)
+
+                            # The first ping in a while might drop a
+                            # few packets while the ARP cache
+                            # populates if vMotion has been idle,
+                            # particularly with an aggressive timeout
+                            # as we have here.  Rather than attempt to
+                            # fix the pingstatus() parser, which
+                            # expects 0% packet loss, we will run the
+                            # ping command twice to pre-populate the
+                            # ARP cache.
+                            cmd = "vmkping -I {} -c 1 {}".format(vmknode, vmkip)
+                            op = execmd(cmd)
+
                             cmd = "vmkping -I {} -c 3 -d -s {} -i 0.05 {}".format(vmknode, mtu, vmkip)
                             op = execmd(cmd)
+
                             pst = pingstatus(op)
                             opd.update({cmd: pst})
                             allvmkpingchk.append(pst)
                         except Exception:
                             pass
+                        pass
+                    pass
+                pass
             # Check ESXi Version
             try:
                 cmd = "vmware -l"
