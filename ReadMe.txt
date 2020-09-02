@@ -18,6 +18,7 @@ Supported HX Versions
 
 Supported HX Clusters
     Hyperflex Standard Cluster
+    Hyperflex Stretched Cluster
     Hyperflex Edge Cluster (2Node, 3Node and 4Node)
     Only supported on Hyperflex cluster on VMWare ESXi
 
@@ -42,7 +43,7 @@ Steps:
       python HXTool.py detail
 6) Enter the HX root password.
 7) Enter the ESXi root password.
-8) Script will display the result on the console and also creates each node report(HX Report 10.X.X.79.txt) and main report txt file(HX Tool Main Report.txt) in the HX_Report_<timestamp> folder.
+8) Script will display the result on the console and also creates main report txt file(HX Tool Main Report.txt) in the HX_Report_<timestamp> directory.
 
 Test Details:
 Detail info of the test are available in the file(TestInfo.txt).
