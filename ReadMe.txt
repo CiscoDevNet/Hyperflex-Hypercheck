@@ -1,3 +1,5 @@
+This Hypercheck Tool is ONLY for ESXI-Hyperflex Clusters.
+
 Introduction
 
 • The Hypercheck tool is a utility to perform pro-active self checks on Hyperflex clusters to ensure its stability and resiliency.
