@@ -1357,27 +1357,7 @@ def network_check(ip):
 
             # 6) Check SCVM and STFSNasPlugin version
             # scvmclient version should match the hx cluster version.
-            chknasplg = ""
-            chkscvm = ""
-            nasplugin = {"1.8": "1.0.1-21", "2.1": "1.0.1-21", "2.5": "1.0.1-21", "2.6": "1.0.1-21",
-                         "3.0": "1.0.1-22", "3.5": "1.0.1-22", "4.0": "1.0.1-22"}
-            hxv = (hostd[ip]["version"])[:3]
-            if float(hxv) <= 3.5 and vibl:
-                for vl in vibl:
-                    if "STFSNasPlugin" in vl:
-                        l = vl.split()
-                        m = re.search(r"^3\.0\(1[a-i]\)", hostd[ip]["version"])
-                        if m:
-                            if l[1] == "1.0.1-22":
-                                chknasplg = "PASS"
-                            else:
-                                chknasplg = "FAIL"
-                        elif hxv in nasplugin.keys():
-                            if nasplugin[hxv] == l[1]:
-                                chknasplg = "PASS"
-                            else:
-                                chknasplg = "FAIL"
-                opd.update({"Check STFSNas plugin version": chknasplg})
+            
 
             # 7) ESX Services
             try:
@@ -1585,9 +1565,7 @@ def network_check(ip):
                 else:
                     nwtestsum[esxip]["Check vmk1 ping to eth1"] = {"Status": "PASS",
                                                                   "Result": "Checks Network between ESXi vmk1 and SCVM eth1."}
-            # Check STFSNas plugin version
-            if chknasplg != "":
-                nwtestsum[esxip]["Check STFSNas plugin version"] = chknasplg
+            
             # No extra controller vm folders check
             nwtestsum[esxip]["No extra controller vm folders check"] = {"Status": vmfld[:4], "Result": "Checks for duplicate Controller SCVM Folders."}
             # VMware Tools location check
