@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on 9-Mar-2018
-Updated on 21-Aug-2020
-@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
+Updated on 18-Nov-2020
+@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla), Afroj(afrahmad)
 """
 import warnings
 warnings.filterwarnings('ignore')
@@ -11,7 +11,7 @@ import paramiko
 import threading
 import time
 import datetime
-import logging 
+import logging
 import sys
 import os
 import shutil
@@ -25,9 +25,10 @@ from progressbar import ProgressBarThread
 from multiprocessing import Process
 
 # Global Variables
-toolversion = 4.0
-builddate = "2020-8-21"
+toolversion = 4.1
+builddate = "2020-11-20"
 sedNote = False
+lsusbCheck = False
 
 ########################       Logger        #################################
 INFO = logging.INFO
@@ -55,15 +56,15 @@ def log_start(log_file, log_name, lvl):
     log_level = lvl
     logger = logging.getLogger(log_name)
     logger.setLevel(log_level)
-    
+
     # Create a file handler
     handler = logging.FileHandler(log_file)
     handler.setLevel(log_level)
-    
+
     # Create a logging format
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', '%Y-%m-%d %I:%M:%S')
     handler.setFormatter(formatter)
-    
+
     # Add the handlers to the logger
     logger.addHandler(handler)
     msg = "HX Checkup Tool Started at Date/Time :" + get_date_time().replace("_", "/") + "\r"
@@ -143,7 +144,7 @@ def runcmd(cmd):
 
 
 def execmd(cmd):
-    # Execute command 
+    # Execute command
     log_entry(cmd)
     log_msg(INFO, "#" * 61 + "\r")
     log_msg(INFO, "\r\nExecuting command: " + cmd + "\r")
@@ -412,7 +413,7 @@ def cluster_services_check(ip):
     cmd = "sysmtool --ns cluster --cmd healthdetail"
     cl_health = execmd(cmd)
     cl_health_reason = []
-    flag2 = flag3 = flag4 = 0  
+    flag2 = flag3 = flag4 = 0
     global nodes
     nodes = ""
     for line in cl_health:
@@ -447,7 +448,7 @@ def cluster_services_check(ip):
     log_msg(INFO, str(cldict) + "\r")
     hostd[ip].update(cldict)
 
-    # 3) service_status.sh 
+    # 3) service_status.sh
     cmd = "service_status.sh"
     cl_service = execmd(cmd)
     # pidof storfs
@@ -458,7 +459,7 @@ def cluster_services_check(ip):
         if s.isdigit():
             cl_service.append("storfs {:>44}".format("... Running"))
         else:
-            cl_service.append("storfs {:>44}".format("... Not Running"))   
+            cl_service.append("storfs {:>44}".format("... Not Running"))
     # pidof stMgr
     cmd = "pidof stMgr"
     op = execmd(cmd)
@@ -476,8 +477,8 @@ def cluster_services_check(ip):
         if s.isdigit():
             cl_service.append("stNodeMgr {:>41}".format("... Running"))
         else:
-            cl_service.append("stNodeMgr {:>41}".format("... Not Running"))  
-    
+            cl_service.append("stNodeMgr {:>41}".format("... Not Running"))
+
     # 4) sysmtool --ns cluster --cmd enospcinfo
     cmd = "sysmtool --ns cluster --cmd enospcinfo"
     cl_space = execmd(cmd)
@@ -606,19 +607,19 @@ def zookeeper_check(ip):
             exh_service = "exhibitor {:>32}".format("... Running")
         else:
             exh_service = "exhibitor {:>32}".format("... Not Running")
-            zcond1 = 1    
+            zcond1 = 1
     if zcond1 == 1:
         cmd = "ls /etc/springpath/*"
         op = execmd(cmd)
-        exh_comm.append("Files in the path[/etc/springpath/*]") 
+        exh_comm.append("Files in the path[/etc/springpath/*]")
         for line in op:
-            exh_comm.append(line.strip()) 
+            exh_comm.append(line.strip())
         cmd = "ls /opt/springpath/config/*"
         op = execmd(cmd)
-        exh_comm.append("\nFiles in the path[/opt/springpath/config/*]") 
+        exh_comm.append("\nFiles in the path[/opt/springpath/config/*]")
         for line in op:
-            exh_comm.append(line.strip())    
-            
+            exh_comm.append(line.strip())
+
     # 3) Check exhibitor.properties file exists
     cmd = "ls /etc/exhibitor/exhibitor.properties"
     op = execmd(cmd)
@@ -722,7 +723,7 @@ def zookeeper_check(ip):
     testsum[ip]["Exhibitor check"] = {"Status": exh_chk, "Result": "Checks if Exhibitor in running."}
     testsum[ip]["System Disks Usage"] = {"Status": zdiskchk, "Result": "Checks if /sda1, var/stv and /var/zookeeper is less than 80%."}
 
-    
+
 def hdd_check(ip):
     # HDD health check
     # sysmtool --ns disk --cmd list
@@ -1071,6 +1072,7 @@ def pre_upgrade_check(ip):
         testsum[ip]["Check springpath_keystore.jceks file"] = {"Status": keystoreCheck, "Result": "All the SCVM have same keystore file."}
 
     # 19) SED Capable Check
+    global lsusbCheck
     sedCapable = False
     usbCheck = False
     sedEnable = False
@@ -1094,6 +1096,7 @@ def pre_upgrade_check(ip):
             usbCheck = True
             testsum[ip]["USB0 check"] = {"Status": "PASS", "Result": "Checks for USB0 in SED clusters."}
         else:
+            lsusbCheck = True
             testsum[ip]["USB0 check"] = {"Status": "FAIL", "Result": "Contact TAC"}
 
         # 21) SED AF Drives – 5100/5200 Check
@@ -1199,6 +1202,29 @@ def pre_upgrade_check(ip):
                         except Exception:
                             pass
 
+    # 26) Check ZK-Cleanup-Script
+    # Only for HX 4.0.2c
+    zkstatus = ""
+    if "4.0.2c" in hostd[ip]["version"]:
+        cmd = "ls /var/log/springpath/ | grep -i zkTxn.log | wc -l"
+        op = execmd(cmd)
+        if op:
+            zkcnt = op[0]
+            if zkcnt.isdigit():
+                if int(zkcnt) == 0:
+                    zkstatus = "FAIL"
+                else:
+                    zkstatus = "PASS"
+        if zkstatus == "FAIL":
+            testsum[ip]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "http://cs.co/9008HGXsy"}
+        else:
+            testsum[ip]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "Check to Identify ZKTxnCleanup script."}
+
+    # 27) Run lsusb when USB0 Check Fails
+    if lsusbCheck:
+        cmd = "lsusb"
+        op = execmd(cmd)
+
     #####################################################
     # Update Test Detail info
     testdetail[ip]["Pre-Upgrade check"] = OrderedDict()
@@ -1277,6 +1303,12 @@ def pre_upgrade_check(ip):
         testdetail[ip]["Pre-Upgrade check"]["Check Witness Reachability"] = {"Status": witnessReachability, "Result": "Checks Witness VM IP address is reachabile."}
         testdetail[ip]["Pre-Upgrade check"]["Check Witness Latetency"] = {"Status": witnessLatetency, "Result": "Checks Witness VM IP address is latetency."}
         testdetail[ip]["Pre-Upgrade check"]["Check Storage Latetency"] = {"Status": storageLatetency, "Result": "Checks Storage latetency."}
+    # Check ZK-Cleanup-Script
+    if zkstatus:
+        if zkstatus == "FAIL":
+            testdetail[ip]["Pre-Upgrade check"]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "http://cs.co/9008HGXsy"}
+        else:
+            testdetail[ip]["Pre-Upgrade check"]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "Check to Identify multiple ZKTxnCleanup script."}
 
 
 def network_check(ip):
@@ -1355,9 +1387,7 @@ def network_check(ip):
             except Exception:
                 pass
 
-            # 6) Check SCVM and STFSNasPlugin version
-            # scvmclient version should match the hx cluster version.
-            
+            # 6) Check SCVM and STFSNasPlugin version: Removed
 
             # 7) ESX Services
             try:
@@ -1539,6 +1569,15 @@ def network_check(ip):
             except Exception:
                 pass
 
+            # 16) Run lsusb when USB0 Check Fails
+            global lsusbCheck
+            if lsusbCheck:
+                try:
+                    cmd = "lsusb"
+                    op = execmd(cmd)
+                except Exception:
+                    pass
+
             # Update Test Detail
             nwtestdetail.update({esxip: opd})
             # Close connection
@@ -1565,7 +1604,6 @@ def network_check(ip):
                 else:
                     nwtestsum[esxip]["Check vmk1 ping to eth1"] = {"Status": "PASS",
                                                                   "Result": "Checks Network between ESXi vmk1 and SCVM eth1."}
-            
             # No extra controller vm folders check
             nwtestsum[esxip]["No extra controller vm folders check"] = {"Status": vmfld[:4], "Result": "Checks for duplicate Controller SCVM Folders."}
             # VMware Tools location check
