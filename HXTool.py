@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on 9-Mar-2018
-Updated on 18-Nov-2020
+Updated on 21-Dec-2020
 @author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla), Afroj(afrahmad)
 """
 import warnings
@@ -11,7 +11,7 @@ import paramiko
 import threading
 import time
 import datetime
-import logging
+import logging 
 import sys
 import os
 import shutil
@@ -26,7 +26,7 @@ from multiprocessing import Process
 
 # Global Variables
 toolversion = 4.1
-builddate = "2020-11-20"
+builddate = "2020-12-21"
 sedNote = False
 lsusbCheck = False
 
@@ -56,15 +56,15 @@ def log_start(log_file, log_name, lvl):
     log_level = lvl
     logger = logging.getLogger(log_name)
     logger.setLevel(log_level)
-
+    
     # Create a file handler
     handler = logging.FileHandler(log_file)
     handler.setLevel(log_level)
-
+    
     # Create a logging format
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', '%Y-%m-%d %I:%M:%S')
     handler.setFormatter(formatter)
-
+    
     # Add the handlers to the logger
     logger.addHandler(handler)
     msg = "HX Checkup Tool Started at Date/Time :" + get_date_time().replace("_", "/") + "\r"
@@ -144,7 +144,7 @@ def runcmd(cmd):
 
 
 def execmd(cmd):
-    # Execute command
+    # Execute command 
     log_entry(cmd)
     log_msg(INFO, "#" * 61 + "\r")
     log_msg(INFO, "\r\nExecuting command: " + cmd + "\r")
@@ -413,7 +413,7 @@ def cluster_services_check(ip):
     cmd = "sysmtool --ns cluster --cmd healthdetail"
     cl_health = execmd(cmd)
     cl_health_reason = []
-    flag2 = flag3 = flag4 = 0
+    flag2 = flag3 = flag4 = 0  
     global nodes
     nodes = ""
     for line in cl_health:
@@ -448,7 +448,7 @@ def cluster_services_check(ip):
     log_msg(INFO, str(cldict) + "\r")
     hostd[ip].update(cldict)
 
-    # 3) service_status.sh
+    # 3) service_status.sh 
     cmd = "service_status.sh"
     cl_service = execmd(cmd)
     # pidof storfs
@@ -459,7 +459,7 @@ def cluster_services_check(ip):
         if s.isdigit():
             cl_service.append("storfs {:>44}".format("... Running"))
         else:
-            cl_service.append("storfs {:>44}".format("... Not Running"))
+            cl_service.append("storfs {:>44}".format("... Not Running"))   
     # pidof stMgr
     cmd = "pidof stMgr"
     op = execmd(cmd)
@@ -477,8 +477,8 @@ def cluster_services_check(ip):
         if s.isdigit():
             cl_service.append("stNodeMgr {:>41}".format("... Running"))
         else:
-            cl_service.append("stNodeMgr {:>41}".format("... Not Running"))
-
+            cl_service.append("stNodeMgr {:>41}".format("... Not Running"))  
+    
     # 4) sysmtool --ns cluster --cmd enospcinfo
     cmd = "sysmtool --ns cluster --cmd enospcinfo"
     cl_space = execmd(cmd)
@@ -607,19 +607,19 @@ def zookeeper_check(ip):
             exh_service = "exhibitor {:>32}".format("... Running")
         else:
             exh_service = "exhibitor {:>32}".format("... Not Running")
-            zcond1 = 1
+            zcond1 = 1    
     if zcond1 == 1:
         cmd = "ls /etc/springpath/*"
         op = execmd(cmd)
-        exh_comm.append("Files in the path[/etc/springpath/*]")
+        exh_comm.append("Files in the path[/etc/springpath/*]") 
         for line in op:
-            exh_comm.append(line.strip())
+            exh_comm.append(line.strip()) 
         cmd = "ls /opt/springpath/config/*"
         op = execmd(cmd)
-        exh_comm.append("\nFiles in the path[/opt/springpath/config/*]")
+        exh_comm.append("\nFiles in the path[/opt/springpath/config/*]") 
         for line in op:
-            exh_comm.append(line.strip())
-
+            exh_comm.append(line.strip())    
+            
     # 3) Check exhibitor.properties file exists
     cmd = "ls /etc/exhibitor/exhibitor.properties"
     op = execmd(cmd)
@@ -723,7 +723,7 @@ def zookeeper_check(ip):
     testsum[ip]["Exhibitor check"] = {"Status": exh_chk, "Result": "Checks if Exhibitor in running."}
     testsum[ip]["System Disks Usage"] = {"Status": zdiskchk, "Result": "Checks if /sda1, var/stv and /var/zookeeper is less than 80%."}
 
-
+    
 def hdd_check(ip):
     # HDD health check
     # sysmtool --ns disk --cmd list
@@ -1206,7 +1206,7 @@ def pre_upgrade_check(ip):
     # Only for HX 4.0.2c
     zkstatus = ""
     if "4.0.2c" in hostd[ip]["version"]:
-        cmd = "ls /var/log/springpath/ | grep -i zkTxn.log | wc -l"
+        cmd = "ps -aux | grep ZKTx | wc -l"
         op = execmd(cmd)
         if op:
             zkcnt = op[0]
@@ -1218,7 +1218,7 @@ def pre_upgrade_check(ip):
         if zkstatus == "FAIL":
             testsum[ip]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "http://cs.co/9008HGXsy"}
         else:
-            testsum[ip]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "Check to Identify ZKTxnCleanup script."}
+            testsum[ip]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "Check to Identify multiple ZKTxnCleanup script."}
 
     # 27) Run lsusb when USB0 Check Fails
     if lsusbCheck:
@@ -1319,6 +1319,7 @@ def network_check(ip):
     except Exception:
         pass
     esxip = hostd[ip]["esxip"]
+    esx_version = ""
     try:
         if esxip != "":
             # Initiate SSH Connection
@@ -1372,6 +1373,10 @@ def network_check(ip):
                 cmd = "vmware -l"
                 op = execmd(cmd)
                 opd.update({"ESX Version": op})
+                v = op[0]
+                m = re.search(r"ESXi (\d\.\d)", v)
+                if m:
+                    esx_version = m.group(1)
             except Exception:
                 pass
 
@@ -1400,17 +1405,30 @@ def network_check(ip):
             # 8) Check for HX down during upgrade
             check_HX_down_status = ""
             try:
-                cmd = "esxcli system settings advanced list | grep TeamPolicyUpDelay -A2 | grep Int | cut -d ':' -f2 | cut -d ' ' -f2"
-                op = execmd(cmd)
-                if op:
-                    v = op[0]
-                    v = v.strip()
-                    if v.isdigit():
-                        if int(v) < 30000:
-                            check_HX_down_status = "FAIL"
-                        else:
-                            check_HX_down_status = "PASS"
-
+                if esx_version and float(esx_version) >= 6.7:
+                    # ESXi 6.7 and above
+                    cmd = "netdbg vswitch runtime get | grep TeamPolicyUpDelay -A2 | cut -d ':' -f2"
+                    op = execmd(cmd)
+                    if op:
+                        v = op[0]
+                        v = v.strip()
+                        if v.isdigit():
+                            if int(v) < 30000:
+                                check_HX_down_status = "FAIL"
+                            else:
+                                check_HX_down_status = "PASS"
+                else:
+                    # ESXi 6.5 and lower
+                    cmd = "esxcli system settings advanced list | grep TeamPolicyUpDelay -A2 | grep Int | cut -d ':' -f2 | cut -d ' ' -f2"
+                    op = execmd(cmd)
+                    if op:
+                        v = op[0]
+                        v = v.strip()
+                        if v.isdigit():
+                            if int(v) < 30000:
+                                check_HX_down_status = "FAIL"
+                            else:
+                                check_HX_down_status = "PASS"
                 opd["Check for ESXI Failback timer"] = check_HX_down_status
             except Exception:
                 pass
