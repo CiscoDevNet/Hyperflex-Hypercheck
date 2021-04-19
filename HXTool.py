@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on 9-Mar-2018
-Updated on 21-Dec-2020
-@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla), Afroj(afrahmad)
+Updated on 14-Apr-2020
+@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla) ,Afroj(afrahmad)
 """
 import warnings
 warnings.filterwarnings('ignore')
@@ -25,8 +25,8 @@ from progressbar import ProgressBarThread
 from multiprocessing import Process
 
 # Global Variables
-toolversion = 4.1
-builddate = "2020-12-21"
+toolversion = 4.2
+builddate = "2021-04-14"
 sedNote = False
 lsusbCheck = False
 
@@ -1225,6 +1225,29 @@ def pre_upgrade_check(ip):
         cmd = "lsusb"
         op = execmd(cmd)
 
+    # 28) Check Disk for Failure
+    cmd = """for D in $(/bin/lsblk -dpn -e 1,2,7,11 | awk '{ print $1 }'); do
+                echo $D | grep -q nvme
+                if [ $? -eq 0 ]; 
+                then
+                STATUS=$(/usr/sbin/nvme smart-log $D 2> /dev/null |
+                awk -F': ' '/critical_warning/ { print $NF }')
+                else
+                /usr/sbin/smartctl -q silent -H -i $D;
+                STATUS=$?
+                STATUS=$((STATUS & 26))
+                fi
+                echo "$D: $STATUS";
+                done"""
+    diskList = execmd(cmd)
+    smartFailDiskList = []
+    for disk in diskList:
+        if "0" not in disk:
+            smartFailDiskList.append(disk)
+    if smartFailDiskList:
+        testsum[ip]["Check Disk for SMART Failure"] = {"Status": "FAIL", "Result": "Contact TAC"}
+    else:
+        testsum[ip]["Check Disk for SMART Failure"] = {"Status": "PASS", "Result": "Check Disk for SMART Failure"}
     #####################################################
     # Update Test Detail info
     testdetail[ip]["Pre-Upgrade check"] = OrderedDict()
@@ -1309,6 +1332,11 @@ def pre_upgrade_check(ip):
             testdetail[ip]["Pre-Upgrade check"]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "http://cs.co/9008HGXsy"}
         else:
             testdetail[ip]["Pre-Upgrade check"]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "Check to Identify multiple ZKTxnCleanup script."}
+    # Check Disk for SMART Failure
+    if smartFailDiskList:
+        testdetail[ip]["Pre-Upgrade check"]["Check Disk for SMART Failure"] = {"Status": "FAIL", "Result": "\n".join(smartFailDiskList)}
+    else:
+        testdetail[ip]["Pre-Upgrade check"]["Check Disk for SMART Failure"] = {"Status": "PASS", "Result": "Check Disk for SMART Failure"}
 
 
 def network_check(ip):
