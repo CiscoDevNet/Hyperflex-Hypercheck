@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on 9-Mar-2018
-Updated on 14-Apr-2020
-@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla) ,Afroj(afrahmad)
+Updated on 29-Apr-2020
+@author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
 """
 import warnings
 warnings.filterwarnings('ignore')
@@ -26,7 +26,7 @@ from multiprocessing import Process
 
 # Global Variables
 toolversion = 4.2
-builddate = "2021-04-14"
+builddate = "2021-04-29"
 sedNote = False
 lsusbCheck = False
 
@@ -127,7 +127,7 @@ def sys_exit(val):
 ####################           SSH connection            #####################
 
 
-def runcmd(cmd):
+def runcmd(cmd, display=True):
     # Execute local shell command
     log_entry(cmd)
     log_msg(INFO, "$" * 61 + "\r")
@@ -137,8 +137,9 @@ def runcmd(cmd):
     p_status = p.wait()
     output = cmdoutput.split("\n")
     log_msg(INFO, "*" * 24 + " CMD OUTPUT " + "*" * 24 + "\r")
-    for line in output:
-        log_msg(INFO, str(line) + "\r")
+    if display:
+        for line in output:
+            log_msg(INFO, str(line) + "\r")
     log_msg(INFO, "*" * 61 + "\r")
     return cmdoutput
 
@@ -1205,27 +1206,30 @@ def pre_upgrade_check(ip):
     # 26) Check ZK-Cleanup-Script
     # Only for HX 4.0.2c
     zkstatus = ""
-    if "4.0.2c" in hostd[ip]["version"]:
-        cmd = "ps -aux | grep ZKTx | wc -l"
-        op = execmd(cmd)
-        if op:
-            zkcnt = op[0]
-            if zkcnt.isdigit():
-                if int(zkcnt) == 0:
-                    zkstatus = "FAIL"
-                else:
-                    zkstatus = "PASS"
-        if zkstatus == "FAIL":
-            testsum[ip]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "http://cs.co/9008HGXsy"}
-        else:
-            testsum[ip]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "Check to Identify multiple ZKTxnCleanup script."}
+    try:
+        if "4.0.2c" in hostd[ip]["version"]:
+            cmd = "ps -aux | grep ZKTx | wc -l"
+            op = execmd(cmd)
+            if op:
+                zkcnt = op[0]
+                if zkcnt.isdigit():
+                    if int(zkcnt) == 0:
+                        zkstatus = "FAIL"
+                    else:
+                        zkstatus = "PASS"
+            if zkstatus == "FAIL":
+                testsum[ip]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "http://cs.co/9008HGXsy"}
+            else:
+                testsum[ip]["Check ZK-Cleanup-Script"] = {"Status": zkstatus, "Result": "Check to Identify multiple ZKTxnCleanup script."}
+    except Exception:
+        pass
 
     # 27) Run lsusb when USB0 Check Fails
     if lsusbCheck:
         cmd = "lsusb"
         op = execmd(cmd)
 
-    # 28) Check Disk for Failure
+    # 28) Check Disk for SMART Failure
     cmd = """for D in $(/bin/lsblk -dpn -e 1,2,7,11 | awk '{ print $1 }'); do
                 echo $D | grep -q nvme
                 if [ $? -eq 0 ]; 
@@ -1247,7 +1251,11 @@ def pre_upgrade_check(ip):
     if smartFailDiskList:
         testsum[ip]["Check Disk for SMART Failure"] = {"Status": "FAIL", "Result": "Contact TAC"}
     else:
-        testsum[ip]["Check Disk for SMART Failure"] = {"Status": "PASS", "Result": "Check Disk for SMART Failure"}
+        testsum[ip]["Check Disk for SMART Failure"] = {"Status": "PASS", "Result": "Checking Disk for SMART Failure"}
+
+    # Check hxuser password
+    testsum[ip]["Check hxuser password characters"] = {"Status": str(hostd[ip]["check hxuser password"]), "Result": "Checking  hxuser password characters"}
+
     #####################################################
     # Update Test Detail info
     testdetail[ip]["Pre-Upgrade check"] = OrderedDict()
@@ -1336,8 +1344,9 @@ def pre_upgrade_check(ip):
     if smartFailDiskList:
         testdetail[ip]["Pre-Upgrade check"]["Check Disk for SMART Failure"] = {"Status": "FAIL", "Result": "\n".join(smartFailDiskList)}
     else:
-        testdetail[ip]["Pre-Upgrade check"]["Check Disk for SMART Failure"] = {"Status": "PASS", "Result": "Check Disk for SMART Failure"}
-
+        testdetail[ip]["Pre-Upgrade check"]["Check Disk for SMART Failure"] = "PASS"
+    # Check hxuser password
+    testdetail[ip]["Pre-Upgrade check"]["Check hxuser password characters"] = str(hostd[ip]["check hxuser password"])
 
 def network_check(ip):
     # Network Check(ESX)
@@ -1827,23 +1836,25 @@ def create_main_report(clusterName, clusterType):
             fh.write("#" * 80)
             fh.write("\r\n")
             n = 1
-            for cname in testdetail[ip].keys():
-                fh.write("\r\n" + str(n) + ") " + cname + ":")
-                fh.write("\r\n")
-                tw = PrettyTable(hrules=ALL)
-                tw.field_names = ["Name", "Status", "Comments"]
-                tw.align = "l"
-                for k, v in testdetail[ip][cname].items():
-                    if type(v) == list:
-                        tw.add_row([k, "\n".join(v), ""])
-                    elif type(v) == dict:
-                        tw.add_row([k, v["Status"], v["Result"]])
-                    else:
-                        tw.add_row([k, v, ""])
-                fh.write((str(tw)).replace("\n", "\r\n"))
-                fh.write("\r\n")
-                n += 1
-
+            try:
+                for cname in testdetail[ip].keys():
+                    fh.write("\r\n" + str(n) + ") " + cname + ":")
+                    fh.write("\r\n")
+                    tw = PrettyTable(hrules=ALL)
+                    tw.field_names = ["Name", "Status", "Comments"]
+                    tw.align = "l"
+                    for k, v in testdetail[ip][cname].items():
+                        if type(v) == list:
+                            tw.add_row([k, "\n".join(v), ""])
+                        elif type(v) == dict:
+                            tw.add_row([k, v["Status"], v["Result"]])
+                        else:
+                            tw.add_row([k, v, ""])
+                    fh.write((str(tw)).replace("\n", "\r\n"))
+                    fh.write("\r\n")
+                    n += 1
+            except Exception:
+                continue
     with open(filename, "a") as fh:
         fh.write("\r\n")
         fh.write("#" * 80)
@@ -2285,6 +2296,24 @@ if __name__ == "__main__":
         keystoreCheck = "FAIL"
     for ip in hostd.keys():
         hostd[ip]["check keystore"] = keystoreCheck
+
+    # Check hxuser password having special character
+    hxpsdcheck = ""
+    try:
+        cmd = "/opt/springpath/storfs-support/getEsxConnectionInfo.sh"
+        op = runcmd(cmd, False)
+        if "password" in op:
+            p = re.search(r"password\":\s+\"(.+)\"", op)
+            if p:
+                psd = p.group(1)
+                if re.search(r"(\{[\{\#\%])|//|\\\\|'|\"", psd):
+                    hxpsdcheck = "FAIL"
+                else:
+                    hxpsdcheck = "PASS"
+    except Exception:
+        pass
+    for ip in hostd.keys():
+        hostd[ip]["check hxuser password"] = hxpsdcheck
 
     # Get ESX IPs, vmk1 ips
     esx_hostsl = []
