@@ -577,10 +577,10 @@ def cluster_services_check(ip):
         elif "System Management Service" in line and "Not" in line:
             cluster_service_chk = "FAIL"
             break
-        elif line.startswith("Cluster IP Monitor") and "Not" in line:
+        elif "Cluster IP Monitor" in line and "Not" in line:
             cluster_service_chk = "FAIL"
             break
-    testsum[ip]["Cluster services check"] = {"Status": cluster_service_chk, "Result": "Checks storfs, stMgr, sstNodeMgr service running on each node."}
+    testsum[ip]["Cluster services check"] = {"Status": cluster_service_chk, "Result": "Checks storfs, stMgr, sstNodeMgr and CIP-Monitor services are running on each node."}
     testsum[ip]["Enospc state check"] = {"Status": enospc_state_check, "Result": "Checks if the cluster storage utilization is above threshold."}
 
 
