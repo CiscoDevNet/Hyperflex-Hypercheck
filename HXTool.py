@@ -2379,7 +2379,7 @@ if __name__ == "__main__":
         try:
             print("\r\nHX Controller: " + str(ip))
             # Initiate SSH Connection
-            client.connect(hostname=ip, username=hxusername, password=hxpassword,/ allow_agent=False)
+            client.connect(hostname=ip, username=hxusername, password=hxpassword, allow_agent=False)
             msg = "\r\nSSH connection established to HX Node: " + ip + "\r"
             log_msg(INFO, msg)
             # log_msg("", msg)
