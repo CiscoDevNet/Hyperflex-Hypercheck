@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on 9-Mar-2018
-Updated on 29-Apr-2020
+Updated on 6-Apr-2022
 @author: Kiranraj(kjogleka), Himanshu(hsardana), Komal(kpanzade), Avinash(avshukla)
 """
 import warnings
@@ -169,13 +169,13 @@ def execmd(cmd):
     return output
 
 
-def check_psd(ips, hxusername, hxpassword, esxpassword, time_out):
+def check_psd(ips, hxusername, hxpassword, esxpassword, allow_agent=False):
     log_msg(INFO, "\r\nChecking the HX root password\r")
     ip = ips[0]
     esxip = ""
     try:
         # Initiate SSH Connection
-        client.connect(hostname=ip, username=hxusername, password=hxpassword, timeout=time_out)
+        client.connect(hostname=ip, username=hxusername, password=hxpassword, allow_agent=False)
         msg = "\r\nSSH connection established to HX Node: " + ip + "\r"
         log_msg(INFO, msg)
         # Get ESX IP
@@ -197,7 +197,7 @@ def check_psd(ips, hxusername, hxpassword, esxpassword, time_out):
         log_msg(INFO, "\r\nChecking the ESX root password\r")
         try:
             # Initiate SSH Connection
-            client.connect(hostname=esxip, username=hxusername, password=esxpassword, timeout=time_out)
+            client.connect(hostname=esxip, username=hxusername, password=esxpassword, allow_agent=False)
             msg = "\r\nSSH connection established to ESX Host: " + esxip + "\r"
             log_msg(INFO, msg)
             log_msg(INFO, "\r\nValid ESX root password\r")
@@ -211,10 +211,10 @@ def check_psd(ips, hxusername, hxpassword, esxpassword, time_out):
             sys.exit(0)
 
 
-def thread_geteth0ip(ip, hxusername, hxpassword, time_out):
+def thread_geteth0ip(ip, hxusername, hxpassword, allow_agent=False):
     try:
         # Initiate SSH Connection
-        client.connect(hostname=ip, username=hxusername, password=hxpassword, timeout=time_out)
+        client.connect(hostname=ip, username=hxusername, password=hxpassword, allow_agent=False)
         msg = "\r\nSSH connection established to HX Node: " + ip + "\r"
         log_msg(INFO, msg)
         #log_msg("", msg)
@@ -234,7 +234,7 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
     hostd[str(ip)] = dict.fromkeys(["hostname", "date", "ntp source", "package & versions", "check package & versions", "eth1", "esxip" "vmk0", "vmk1", "iptables count", "check iptables", "keystore"], "")
     try:
         # Initiate SSH Connection
-        client.connect(hostname=ip, username=hxusername, password=hxpassword, timeout=time_out)
+        client.connect(hostname=ip, username=hxusername, password=hxpassword, allow_agent=False)
         msg = "\r\nSSH connection established to HX Node: " + ip + "\r"
         log_msg(INFO, msg)
         log_msg("", msg)
@@ -307,10 +307,10 @@ def thread_sshconnect(ip, hxusername, hxpassword, time_out):
         client.close()
 
 
-def thread_timestamp(ip, hxusername, hxpassword, time_out):
+def thread_timestamp(ip, hxusername, hxpassword, allow_agent=False):
     try:
         # Initiate SSH Connection
-        client.connect(hostname=ip, username=hxusername, password=hxpassword, timeout=time_out)
+        client.connect(hostname=ip, username=hxusername, password=hxpassword, allow_agent=False)
         msg = "\r\nSSH connection established to HX Node: " + ip + "\r"
         log_msg(INFO, msg)
         #log_msg("", msg)
@@ -330,13 +330,13 @@ def thread_timestamp(ip, hxusername, hxpassword, time_out):
         client.close()
 
 
-def get_vmk1(ip, hxusername, esxpassword, time_out):
+def get_vmk1(ip, hxusername, esxpassword, allow_agent=False):
     esxip = hostd[ip].get("esxip", "")
     if esxip != "":
         vmknode = ""
         try:
             # Initiate SSH Connection
-            client.connect(hostname=esxip, username=hxusername, password=esxpassword, timeout=time_out)
+            client.connect(hostname=esxip, username=hxusername, password=esxpassword, allow_agent=False)
             msg = "\r\nSSH connection established to ESX Host: " + esxip + "\r"
             log_msg(INFO, msg)
             log_msg("", msg)
@@ -1360,7 +1360,7 @@ def network_check(ip):
     try:
         if esxip != "":
             # Initiate SSH Connection
-            client.connect(hostname=esxip, username=hxusername, password=esxpassword, timeout=time_out)
+            client.connect(hostname=esxip, username=hxusername, password=esxpassword, allow_agent=False)
             msg = "\r\nSSH connection established to ESX Host: " + esxip + "\r"
             log_msg(INFO, msg)
 
@@ -1986,6 +1986,7 @@ if __name__ == "__main__":
     # HX Controller parameter
     print("\nPlease enter below info of HX-Cluster:")
     hxusername = "root"
+    esxuername = "hci"
     log_msg(INFO, "Username: " + hxusername + "\r")
     hxpassword = getpass.getpass("Enter the HX-Cluster Root Password: ")
     esxpassword = getpass.getpass("Enter the ESX Root Password: ")
@@ -2081,7 +2082,7 @@ if __name__ == "__main__":
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     # Check HX and ESX root Password
-    check_psd(ips, hxusername, hxpassword, esxpassword, time_out)
+    check_psd(ips, hxusername, hxpassword, esxuername, time_out)
 
     # Get all hostnames and HX IP address using threads
     # <hostname -i> cmd is not working
@@ -2378,7 +2379,7 @@ if __name__ == "__main__":
         try:
             print("\r\nHX Controller: " + str(ip))
             # Initiate SSH Connection
-            client.connect(hostname=ip, username=hxusername, password=hxpassword, timeout=time_out)
+            client.connect(hostname=ip, username=hxusername, password=hxpassword, allow_agent=False)
             msg = "\r\nSSH connection established to HX Node: " + ip + "\r"
             log_msg(INFO, msg)
             # log_msg("", msg)
